@@ -1,0 +1,157 @@
+---
+title: "Better-NiDA Roadmap: Layout, Ergonomics, and Beyond"
+sidebarTitle: "Roadmap"
+description: "The Better-NiDA development roadmap: platform verification, closing character gaps, ergonomic improvements driven by frequency data, and future IME work."
+---
+
+The Better-NiDA roadmap is organized around a clear question that must be answered before any work begins: what can a keyboard layout actually fix, and what needs a different kind of tool? The four phases that follow build on that answer — verifying the base on real hardware before changing anything, then closing objective character gaps, then improving ergonomics with evidence, and finally considering input-method work if the layout alone proves insufficient.
+
+<Note>
+  The most useful contribution right now is **hardware testing on macOS or Linux**. Everything else in the roadmap depends on a verified base. See [Contributing: Workflow](/contributing/workflow) for instructions.
+</Note>
+
+---
+
+## What a Keyboard Layout Can and Cannot Fix
+
+A keyboard layout maps key + modifier to code points. That is all it does. It controls which characters are reachable and how much effort each takes. It cannot control anything downstream of the keypress.
+
+| Problem | Fixable by a layout? |
+| :-- | :-- |
+| A character cannot be typed at all | **Yes** — add a key or a level |
+| Typing a common character needs Shift + reach | **Yes** — move it |
+| XKB drops the second code point in a ligature | **Yes** — use a different platform target |
+| Khmer text renders with wrong coeng stacking | **No** — needs shaping in the text engine |
+| An app mishandles `U+200B` or `U+17D2` | **No** — needs an input method or an app fix |
+| Word boundaries wrong (no auto `U+200B`) | **No** — needs an IME |
+
+The last four rows are real problems that users often attribute to "the keyboard layout." They are not layout problems, and no amount of remapping fixes them. If Better-NiDA is going to address them, the deliverable is an **input method** — a much larger and different project. The layout scope is achievable and verifiable now; the engine scope needs a rendering and IME architecture that has not been designed here yet.
+
+---
+
+## Phase 1 — Make It Verifiable <span style={{color: "var(--primary)"}}>← current</span>
+
+Nothing else is worth building on an unverified base. The layout files have been structurally checked on Windows, but have never been loaded on a real Mac or Linux machine.
+
+- [ ] **Test on macOS** — install `install-nida-macos.command`, run the checklist in `macos/README.md`, open a Testing Report issue.
+- [ ] **Test on Linux** — run `linux/install.sh` and `linux/verify.sh`, open a Testing Report issue.
+- [ ] **Validate the m17n input method** with `m17n-db` (must print nothing).
+- [ ] **Find two or three Khmer typists** to test-drive candidates. Not optional for Phase 3, and worth recruiting now.
+
+**Exit criterion:** one confirmed-working install on each OS, and a name against each open bug.
+
+---
+
+## Phase 2 — Close the Objective Gaps
+
+These require no research and no debate: characters are simply unreachable. Anyone who hits them is typing around a real hole.
+
+### 2.1 The Fifth Modifier Level
+
+NiDA's main table declares four modifier states; legacy Khmer declares five. The missing level is `Shift+AltGr`, where legacy Khmer keeps the entire `U+19E0–U+19FF` symbol block. **45 Khmer-block characters reachable in legacy Khmer are unreachable in NiDA**, including two actual consonants:
+
+| Missing character | Code point | Category |
+| :-- | :-- | :-- |
+| ឝ SHA | U+179D | Consonant |
+| ឞ SSO | U+179E | Consonant |
+| ៝ ATTHACAN | U+17DD | Sign |
+| LEK ATTAK digits | U+17F0–U+17F9 | Digits (9 characters) |
+| PATHAMASAT, KOET, ROC, TUTEYASAT families | U+19E0–U+19FF | Symbols (32 characters) |
+
+The generator already emits five-level layouts for the legacy variant, so this is a **data change, not a code change**.
+
+- [ ] Decide the exact key assignments for the new level.
+- [ ] Add the level to the NiDA variant in the generator.
+- [ ] Place ឝ and ឞ somewhere reachable — this requires a deliberate decision, since it means displacing something.
+- [ ] Re-run the chain and confirm the layout files contain the expected new characters.
+
+### 2.2 Unblock Authoring
+
+The current pipeline is one-directional:
+
+```
+kbdkni.dll  →  nida_layout.json  →  macos + Linux layouts
+```
+
+The spec is a dump of Microsoft's driver. Better-NiDA wants to *author* a layout and emit platforms from it, which means the middle needs to become an input rather than a by-product.
+
+- [ ] Define a small, human-readable layout source format (YAML or JSON).
+- [ ] Have the generator accept either a driver dump or an authored file.
+- [ ] Keep the existing pipeline able to reproduce the NiDA dump, so the authored NiDA is provably identical to the driver's.
+
+### 2.3 Linux Ligature Parity
+
+On Linux, XKB allows one character per key per level, so the five ligature keys (`Shift+A`, `Shift+V`, `Shift+;`, `,`, `Shift+,`) emit only their first code point. macOS has no such limit.
+
+- [ ] Validate `linux/m17n/` properly with `m17n-db`.
+- [ ] Consider QMK/ZMK as a Linux path that supports multi-character output.
+- [ ] Document the limitation prominently — it is already noted in `linux/README.md`.
+
+---
+
+## Phase 3 — Ergonomics
+
+Everything in this phase requires evidence. None of it should be acted on from intuition alone.
+
+### 3.1 Get Frequency Data
+
+There is no input to this phase without a corpus. Candidate sources:
+
+- **Khmer Wikipedia dumps** (`km.wikipedia.org`) — large, free, real prose.
+- **SEAlang Project** — Khmer word lists and dictionaries.
+- Khmer subtitle corpora, if available.
+
+Then build the analyser:
+
+- [ ] A script that takes a corpus and produces a **character frequency table**.
+- [ ] A script that **scores a candidate layout**: keystrokes per character, share of keystrokes needing Shift, finger-travel distance, home-row coverage, same-finger bigram rate.
+
+### 3.2 Candidate Changes to Evaluate
+
+These are hypotheses, not recommendations. Each is a trade-off.
+
+| Hypothesis | Trade-off |
+| :-- | :-- |
+| Flatten consonant pairs so ក and គ need no Shift | Abandons NiDA's two-layer model entirely |
+| Move the most frequent vowels to the home row | Displaces consonants or symbols |
+| Move real space off `Shift+Space` | Challenges an intentional choice; Khmer word separation relies on `U+200B` |
+| Make Caps Lock useful | Currently impossible — Shift is already load-bearing for o-series consonants, so Caps Lock is structurally useless on NiDA |
+
+### 3.3 Evaluate Properly
+
+- [ ] Generate 2–3 candidate layouts from the authored source format.
+- [ ] Score each against the corpus metrics.
+- [ ] Have Khmer typists type a fixed passage on each, timed and error-counted.
+- [ ] Publish the results, including the ones that lose.
+
+---
+
+## Phase 4 — Beyond the Keyboard
+
+Only if Phase 3 shows the layout is not the bottleneck.
+
+- [ ] **Auto-insert `U+200B`** at syllable boundaries — impossible in a layout, needs an IME.
+- [ ] **Syllable composition buffer** — Khmer is not composed the way Hangul is, but a syllable-cluster buffer could help with compound marks.
+- [ ] **QMK/ZMK firmware** with the layout baked in, for mechanical keyboard users.
+- [ ] **Windows port** so a `.keylayout`-equivalent ships to NiDA users on Windows.
+
+---
+
+## Open Questions
+
+These need answers before the corresponding work begins.
+
+<AccordionGroup>
+  <Accordion title="1. Layout or engine?">
+    This is the biggest fork in the project. A Better-NiDA that fixes missing characters and improves ergonomics is a layout — achievable now with the existing pipeline. A Better-NiDA that auto-inserts `U+200B`, handles syllable composition, or fixes rendering is an input method — a different and much larger project. Doing both doubles the work and the maintenance surface. The layout scope is achievable and verifiable today; the engine scope needs an architecture nobody has designed here yet. Decide early.
+  </Accordion>
+  <Accordion title="2. Who are the typists?">
+    Phase 3 is worthless without Cambodian users who type Khmer day to day. Frequency data and corpus scores are useful inputs, but the evaluation requires real typists doing timed trials. That is a relationship to build, not a task to assign. It is worth recruiting now, before Phase 3 starts.
+  </Accordion>
+  <Accordion title="3. Is compatibility sacred?">
+    A Better-NiDA that reassigns NiDA keys will annoy existing users who have built muscle memory around the current layout. One approach: ship it as a **separate layout name** alongside NiDA rather than as a replacement, letting users choose. That avoids forcing a choice, but it also means maintaining two layouts.
+  </Accordion>
+  <Accordion title="4. Who maintains it?">
+    The reverse-engineering is done and the pipeline is reproducible — but the generated layouts need regenerating whenever Windows ships a new `kbdkni.dll`. Someone needs to own that. The toolchain is Windows-only, so the maintainer needs a Windows machine and enough context to run the chain and judge whether a driver update changed anything meaningful.
+  </Accordion>
+</AccordionGroup>

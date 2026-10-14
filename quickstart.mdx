@@ -1,47 +1,211 @@
 ---
-title: "Quickstart"
-description: "Begin with a guide on the fastest path to a successful outcome"
+title: "Get Started with Better-NiDA Khmer Keyboard Layout"
+sidebarTitle: "Quickstart"
+description: "Install the Better-NiDA Khmer keyboard layout on macOS or Linux in three steps — no build tools or repository clone required."
 ---
 
-Describe how someone begins using your product. What is the first thing they need to do? Are there any prerequisites?
+This quickstart gets you typing Khmer with Better-NiDA as fast as possible.
+You do not need to run any build tools or regenerate any files — the verified
+layout files are committed to the repository and ready to install. Pick your
+platform below, follow the steps, and verify a handful of keys to confirm
+everything is working.
 
-A quickstart should take someone from zero to using your product. They'll get a quick win and a sense of what they can accomplish.
+---
 
-## Prerequisites
+## Install
 
-Before you begin, you must have:
+<Tabs>
+  <Tab title="macOS">
+    <Steps>
+      <Step title="Get the layout files">
+        Clone the repository or download the release archive. The layout files
+        are in the `macos/` directory — no build step is needed.
 
-- Requirement one (for example, Node.js 18+, a free account, an API key)
-- Requirement two (for example, a compatible device, a compatible browser, a compatible operating system)
+        ```sh
+        git clone https://github.com/airiharuki/Better-NiDA.git
+        cd Better-NiDA
+        ```
+      </Step>
 
-## Get started
+      <Step title="Install the layouts">
+        You have two options. Use whichever suits your setup:
 
-<Steps>
-  <Step title="Install">
-    Describe how to install your product or sign up.
+        **Option A — Shell script (recommended, no password needed)**
 
-    ```bash
-    npm install your-package
-    ```
-  </Step>
-  <Step title="Configure">
-    Describe any setup or configuration needed before first use.
+        Copies both `.keylayout` bundles into `~/Library/Keyboard Layouts`,
+        affecting only your own account:
 
-    ```bash
-    your-cli init
-    ```
-  </Step>
-  <Step title="Run it">
-    Show the first thing a user does to see it working.
+        ```sh
+        cd macos && ./install.sh
+        ```
 
-    ```bash
-    your-cli start
-    ```
-  </Step>
-</Steps>
+        **Option B — Double-clickable `.pkg` (system-wide, asks for password)**
 
-<Tip>
-  Give people a way to get help. This could be a link to a support page, a chat with a customer support agent, or a forum for your product.
+        Build the installer first, then double-click the resulting file and
+        follow the prompts:
 
-  Example: Need help? Reach out to us at [support@yourcompany.com](mailto:support@yourcompany.com).
-</Tip>
+        ```sh
+        cd macos && ./make-pkg.sh
+        # Opens dist/Khmer-NiDA-Layouts-1.0.0.pkg — double-click to install
+        ```
+      </Step>
+
+      <Step title="Enable the layout in System Settings">
+        Open **System Settings → Keyboard → Text Input → Edit...**, click
+        **`+`**, then select **Others...** from the left-hand list. You will see
+        **Khmer NiDA** and **Khmer NiDA Legacy** — add whichever you need.
+
+        If neither appears in the list straight away, **log out and back in**.
+        macOS caches its keyboard layout list, and the installer nudges but does
+        not always immediately refresh it.
+      </Step>
+
+      <Step title="Verify a few keys">
+        Switch to the Khmer NiDA input source and open a Unicode-aware editor
+        such as TextEdit or VS Code. Check these keys:
+
+        | Key | Expected output |
+        | :-- | :-- |
+        | `J` | `U+17D2` coeng ្ |
+        | `Space` | `U+200B` zero-width space (invisible) |
+        | `Shift+Space` | `U+0020` real visible space |
+        | `Shift+A` | `U+17B6 U+17C6` ាំ (single key press, two code points) |
+        | `Shift+V` | `U+17C1 U+17C7` េះ |
+        | `Shift+;` | `U+17C4 U+17C7` ោះ |
+        | `,` | `U+17BB U+17C6` ុំ |
+        | `Shift+,` | `U+17BB U+17C7` ុះ |
+
+        The five ligature keys (`Shift+A`, `Shift+V`, `Shift+;`, `,`,
+        `Shift+,`) each emit two code points from a single key press on macOS —
+        all five should work. If a character appears as a missing-glyph box, the
+        app may not support Khmer shaping; try a different editor.
+      </Step>
+    </Steps>
+  </Tab>
+
+  <Tab title="Linux">
+    <Steps>
+      <Step title="Get the layout files">
+        Clone the repository or download the release archive. The layout files
+        are in the `linux/` directory.
+
+        ```sh
+        git clone https://github.com/airiharuki/Better-NiDA.git
+        cd Better-NiDA
+        ```
+      </Step>
+
+      <Step title="Install the layouts">
+        Run the installer from the `linux/` directory. No root is required —
+        everything is installed per-user under `~/.xkb`.
+
+        ```sh
+        cd linux && ./install.sh              # NiDA layout (default)
+        # or:
+        ./install.sh nida_legacy              # Legacy layout instead
+        ```
+
+        Running the installer twice is safe. To remove the layouts entirely:
+
+        ```sh
+        ./install.sh --remove
+        ```
+      </Step>
+
+      <Step title="Enable the layout in your desktop environment">
+        After installing, add the layout through your desktop's keyboard
+        settings. Look under **Keyboard → Layouts → Add → Others** for
+        **"Khmer NiDA"** or **"Khmer NiDA Legacy"**:
+
+        | Desktop | Path |
+        | :-- | :-- |
+        | GNOME | Settings → Keyboard → Input Sources → `+` |
+        | KDE Plasma | System Settings → Keyboard → Layouts → Add |
+        | Xfce | Keyboard → Layout → `+` Add |
+        | Cinnamon | Keyboard → Layouts → Add |
+      </Step>
+
+      <Step title="Verify the active layout">
+        Run the bundled verification script to confirm the installed layout is
+        correct:
+
+        ```sh
+        ./verify.sh           # inspect whichever layout is currently active
+        ./verify.sh nida      # inspect nida without activating it
+        ```
+
+        Then confirm these keys manually in a text editor:
+
+        | Key | Expected output |
+        | :-- | :-- |
+        | `J` | `U+17D2` coeng ្ |
+        | `Space` | `U+200B` zero-width space (invisible) |
+        | `Shift+Space` | `U+0020` real visible space |
+        | `1` | `U+17E1` Khmer digit one |
+        | `` ` `` | `U+00AB` « (left angle quotation mark) |
+      </Step>
+    </Steps>
+
+    <Note>
+      **Ligature limitation on Linux.** XKB can only emit one character per key
+      per level, so the five ligature keys (`Shift+A`, `Shift+V`, `Shift+;`,
+      `,`, `Shift+,`) each produce only their **first** code point rather than
+      the full two-character sequence. The affected entries are marked
+      `LIGATURE truncated` in the installed file — check with
+      `grep LIGATURE ~/.xkb/symbols/nida`. If you need the full ligature
+      sequences, install the optional **m17n input method** from `linux/m17n/`
+      instead.
+    </Note>
+  </Tab>
+</Tabs>
+
+---
+
+## NiDA vs. Legacy: which should I use?
+
+| Feature | Khmer NiDA | Khmer NiDA Legacy |
+| :-- | :-- | :-- |
+| Windows driver | `kbdkni.dll` (KLID `00010453`) | `kbdkhmr.dll` (KLID `00000453`) |
+| Coeng ្ (`U+17D2`) | `J` | `Space` |
+| Zero-width space (`U+200B`) | `Space` | `/` |
+| Modifier levels | 4 (Normal / Shift / Control / AltGr) | 5 (+ Shift+AltGr) |
+| Shift+AltGr level | Not available | Khmer symbol block `U+19E0–U+19FF` |
+| Recommendation | Current national standard | Needed for `U+19E0–U+19FF` symbols or legacy muscle memory |
+
+Choose **Khmer NiDA** if you are following the current NIDA national standard.
+Choose **Khmer NiDA Legacy** if you need the Shift+AltGr symbol block, or if
+you are migrating from an older setup where the spacebar typed the coeng
+subscript.
+
+---
+
+## What to do if something looks wrong
+
+Both platform layouts were structurally validated on Windows but have not yet
+been confirmed on real macOS or Linux hardware. If a key produces the wrong
+character, does not appear in your desktop's input-source list, or behaves
+unexpectedly in any way:
+
+1. Run the platform checklist (`macos/README.md` or `./verify.sh` on Linux)
+2. Note the key, modifier, and what you got vs. what was expected
+3. Open a **Testing Report** issue on GitHub
+
+Even a simple "it works" report is valuable — it establishes a confirmed-working
+baseline on hardware that has not been tested yet.
+
+---
+
+<CardGroup cols={3}>
+  <Card title="macOS Full Guide" icon="apple" href="/install/macos">
+    Complete macOS documentation: editing the layout, removing it, and
+    regenerating from source.
+  </Card>
+  <Card title="Linux Full Guide" icon="linux" href="/install/linux">
+    Complete Linux documentation: m17n setup, XKB editing, and the verify
+    script reference.
+  </Card>
+  <Card title="Character Matrix" icon="table" href="/reference/character-matrix">
+    All 49 keys across all modifier states, with Unicode code points and
+    character names.
+  </Card>
+</CardGroup>

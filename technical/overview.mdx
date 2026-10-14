@@ -1,0 +1,71 @@
+---
+title: "Reverse Engineering kbdkni.dll: Method and Findings"
+sidebarTitle: "Overview"
+description: "How the Windows Khmer NiDA keyboard driver was decoded using KbdLayerDescriptor and verified against ToUnicodeEx, yielding a 144/144 match with zero mismatches."
+---
+
+This section documents how `kbdkni.dll` — the Windows Khmer NiDA keyboard driver, KLID `00010453` — was reverse-engineered using two independent methods and cross-checked to produce the authoritative `nida_layout.json` specification. Both methods operate entirely within Windows and agree on every comparison made, giving a faithful, verifiable decode of the layout's binary tables.
+
+## Target and environment
+
+Recorded precisely, because a reverse-engineering result is only meaningful alongside the exact build it was taken from.
+
+| Property | Value |
+| :-- | :-- |
+| Host OS | Windows 11 Enterprise, 26H2, build 26300.9550 |
+| Binary | `C:\Windows\System32\kbdkni.dll` |
+| Size | 24576 bytes |
+| DLL file version | 10.0.26100.2454 |
+| Keyboard layout ID | `00010453` |
+| Display name | Khmer (NiDA) |
+| Authority | NIDA — National Information Communications Technology Development Authority, Cambodia |
+| Comparison layout | `kbdkhmr.dll`, KLID `00000453`, "Khmer" (legacy) |
+
+## Why Windows-only
+
+This analysis is not portable — and not by oversight. Each step depends on Microsoft's own driver and on Windows to interpret it.
+
+| Step | Windows dependency |
+| :-- | :-- |
+| Obtain input data | `kbdkni.dll`, a Windows PE driver under `%SystemRoot%\System32` |
+| Read in-process | `kernel32!LoadLibrary` + the `KbdLayerDescriptor` export |
+| Independent check | `user32!ToUnicodeEx`, `user32!MapVirtualKeyEx` |
+
+Neither the file nor the APIs exist on macOS or Linux, so the decompilation and behavioural probe must run on Windows. The five data-only scripts (`verify_tables`, `verify_control`, `verify_platform_layouts`, `build_unicode_names`, `render_docs`) run anywhere PowerShell does.
+
+## Two-method approach
+
+Two independent paths were used, and they agree exactly:
+
+1. **Structural (primary).** Load the DLL in-process, call its exported `KbdLayerDescriptor()`, and walk the returned descriptor into the layout's own tables. This reads the layout as data, with no Windows in the loop.
+2. **Behavioural (oracle).** Ask Windows what each key produces by calling `ToUnicodeEx()` for every scan code in every modifier state. This is completely independent of any assumption about the file format.
+3. **Control probe.** Repeat the probe with `VK_CONTROL` held, to verify that slot 2 of the special-keys table is the Control character — the one reading the first oracle alone could not settle.
+
+## Results
+
+```
+comparisons made : 144  (NiDA, 48 keys × Normal/Shift/AltGr)
+mismatches       : 0
+
+control probe    : 4    (special keys × Control)
+mismatches       : 0     → slot 2 is the Control character, confirmed
+```
+
+`scripts/verify_tables.ps1` re-runs this comparison and exits non-zero on any disagreement, so the claim is reproducible rather than merely asserted.
+
+## Key findings
+
+- The NiDA driver defines **49 keys across 4 modifier states** (Normal, Shift, Control, AltGr). It overrides no Control characters.
+- **Five keys emit two code points at once** — the Khmer *srak*/*srah* marks: `Shift+A` (ាំ), `Shift+V` (េះ), `Shift+;` (ោះ), `,` (ុំ) and `Shift+,` (ុះ).
+- `J` is the **coeng subscript generator** (U+17D2); the **spacebar emits a zero-width space** (U+200B); `Shift+Space` is a real space.
+- The driver has **no `Shift+AltGr` state** — the Khmer symbol block U+19E0–U+19FF that the legacy `kbdkhmr.dll` exposes is unreachable in NiDA.
+- Each key is defined in exactly one table: the main map and the fallback tables have **zero overlapping virtual keys**.
+- Multi-character output is keyed by `(virtual key, modifier number)`, not as a chord string — getting this wrong reverses the two code points.
+
+Full binary details are in [Binary Anatomy](/technical/binary-anatomy).
+
+## Scope limit
+
+<Warning>
+Every finding in this section comes from Windows: the DLL tables were decoded on Windows and verified against the Windows `ToUnicodeEx` API. The macOS and Linux layouts built from this spec have **not** been loaded on macOS or Linux. The analysis host is Windows 11 Enterprise, 26H2, build 26300.9550, and no Mac or Linux machine was involved.
+</Warning>

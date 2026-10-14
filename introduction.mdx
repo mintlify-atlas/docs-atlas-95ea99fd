@@ -1,0 +1,176 @@
+---
+title: "Better-NiDA: Faithful Khmer Keyboard Layout for macOS and Linux"
+sidebarTitle: "Introduction"
+description: "Better-NiDA reverse-engineers the Windows kbdkni.dll driver to produce verified Khmer NiDA keyboard layouts for macOS and Linux, with all 49 keys and 5 ligatures confirmed at 144/144 accuracy."
+---
+
+## What is Better-NiDA?
+
+Better-NiDA is a project that reverse-engineers the Windows Khmer NiDA keyboard
+driver (`kbdkni.dll`) and generates faithful, verified keyboard layouts for
+macOS and Linux. Rather than transcribing a layout by hand or guessing at key
+assignments, Better-NiDA reads the driver's own binary tables, cross-checks
+every character against Windows' `ToUnicodeEx` API, and then produces
+platform-native layout files from a single authoritative specification
+(`nida_layout.json`).
+
+The result is a port you can trust: every key assignment traces directly back to
+the Windows driver, and the verification record is committed alongside the
+layouts so anyone can reproduce it.
+
+---
+
+## Background: the Khmer NiDA standard
+
+The **Khmer NiDA** keyboard layout is the national standard for typing Khmer
+script on modern computing platforms, maintained by **NIDA** — Cambodia's
+National Information Communications Technology Development Authority. On Windows
+it ships as the system driver `kbdkni.dll` under keyboard layout ID (KLID)
+`00010453`, and it is the reference that every other platform's Khmer input
+should match.
+
+Before Better-NiDA, macOS and Linux users had no verified, faithful port of
+this layout. Unofficial ports existed, but none were derived from the driver
+itself, and none carried a public verification record showing they matched
+Windows character-for-character.
+
+---
+
+## The problem it solves
+
+macOS and Linux users typing Khmer faced two related problems:
+
+1. **No authoritative source.** Without reading the driver, you cannot know
+   whether a community-built layout is accurate, incomplete, or silently wrong
+   on edge cases like ligatures and invisible formatting characters.
+
+2. **No verification.** Even a well-intentioned port has no way to prove it
+   matches the Windows standard unless it is tested against Windows itself.
+
+Better-NiDA fixes both. It reads `kbdkni.dll` directly using
+`kernel32!LoadLibrary` and its `KbdLayerDescriptor` export, then independently
+confirms every output by probing `user32!ToUnicodeEx` per key and modifier
+state. The two paths must agree exactly — any mismatch fails the build. The
+generated macOS and Linux layouts are then produced mechanically from the
+verified spec, so they cannot introduce transcription errors.
+
+---
+
+## Reverse engineering at a glance
+
+The pipeline runs in three stages:
+
+```
+kbdkni.dll  →  nida_layout.json  →  macOS .keylayout + Linux XKB files
+```
+
+| Stage | What happens |
+| :-- | :-- |
+| **Structural decode** | Walk `KbdLayerDescriptor()` tables in the DLL to read the raw character maps |
+| **Behavioural probe** | Call `ToUnicodeEx` for every key × modifier state; results must match the structural decode exactly |
+| **Platform generation** | `build_platform_layouts.ps1` emits macOS `.keylayout` bundles and Linux XKB `symbols` files from `nida_layout.json` |
+
+**Verification result: 144 of 144 `ToUnicodeEx` comparisons agree, 0
+mismatches**, plus 4 of 4 on the Control-key probe.
+
+> **Note:** The reverse-engineering toolchain runs on Windows only — it loads
+> the driver DLL and calls Windows keyboard APIs that do not exist on other
+> platforms. You do **not** need to run any of this to use the layouts. The
+> verified spec (`nida_layout.json`) and the generated layout files are
+> committed to the repository; just clone and install.
+
+---
+
+## Key findings from the driver
+
+Reading the driver directly revealed several facts that behavioural probing
+alone would miss:
+
+- The NiDA driver defines **49 keys across 4 modifier states** (Normal, Shift,
+  Control, AltGr). It overrides no Control characters.
+- **Five keys emit two code points in a single keystroke** — the Khmer
+  *srak*/*srah* compound marks:
+
+  | Key | Output | Code points |
+  | :-- | :-- | :-- |
+  | `Shift+A` | ាំ | `U+17B6 U+17C6` |
+  | `Shift+V` | េះ | `U+17C1 U+17C7` |
+  | `Shift+;` | ោះ | `U+17C4 U+17C7` |
+  | `,` | ុំ | `U+17BB U+17C6` |
+  | `Shift+,` | ុះ | `U+17BB U+17C7` |
+
+- `J` is the **coeng subscript generator** (`U+17D2` ្), which places a
+  consonant in subscript form for consonant cluster stacking.
+- The **spacebar emits a zero-width space** (`U+200B`); `Shift+Space` is a real
+  visible space. This is intentional — Khmer word segmentation relies on the
+  zero-width space as a word boundary marker.
+- NiDA defines **no `Shift+AltGr` state**, so the Khmer symbol block
+  `U+19E0–U+19FF` that the legacy `kbdkhmr.dll` layout exposes is unreachable
+  in NiDA. The Legacy variant provides access to this block.
+
+---
+
+## Two variants
+
+Better-NiDA ships layouts for both Windows Khmer drivers, since they
+genuinely differ:
+
+| | Khmer NiDA | Khmer NiDA Legacy |
+| :-- | :-- | :-- |
+| **Windows driver** | `kbdkni.dll` (KLID `00010453`) | `kbdkhmr.dll` (KLID `00000453`) |
+| **Coeng ្** | `J` | `Space` |
+| **Zero-width space** | `Space` | `/` |
+| **Modifier states** | 4 (Normal / Shift / Control / AltGr) | 5 (+ Shift+AltGr) |
+| **Shift+AltGr level** | Not present | Khmer symbol block `U+19E0–U+19FF` |
+
+Choose **Khmer NiDA** if you are following the current national standard.
+Choose **Khmer NiDA Legacy** if you need access to the `U+19E0–U+19FF` symbol
+block, or if you are already accustomed to the older layout where `Space`
+produces the coeng.
+
+---
+
+## Platform support
+
+| Platform | Files | Ligature support | Install |
+| :-- | :-- | :-- | :-- |
+| **macOS** | `.keylayout` bundles in `macos/` | **Full — all 5/5 ligatures work** | `macos/install.sh` or a double-clickable `.pkg` |
+| **Linux** | XKB `symbols` files in `linux/` | **Partial — XKB truncates to first code point** | `linux/install.sh` (per-user, no root) |
+
+**macOS is the better-supported target.** A macOS `.keylayout` bundle can emit
+several characters from a single key press, so all five ligature keys reproduce
+their full two-character sequences exactly as Windows does. XKB maps each key
+to exactly one character per level, so those five keys emit only their first
+code point on Linux; the affected entries are marked `LIGATURE truncated` in
+the generated file. All other keys — including the coeng (`U+17D2`) and the
+zero-width space (`U+200B`) — are faithful on both platforms.
+
+For Linux users who need full ligature output, `linux/m17n/` provides an
+optional `m17n` input method that emits the complete sequences.
+
+<Note>
+  **Testing status.** Both platform layouts were generated and structurally
+  validated on Windows (the analysis host). They have **not** yet been confirmed
+  on real macOS or Linux hardware. Each platform ships a verification checklist
+  — `macos/README.md` and `linux/verify.sh` — and the honest position is that
+  these are untested on real machines. If you have a Mac or a Linux box, the
+  most useful thing you can do right now is install the layout, run the
+  checklist, and open a **Testing Report** issue — even "it works" is worth
+  recording.
+</Note>
+
+---
+
+## Where to go next
+
+<CardGroup cols={2}>
+  <Card title="Install on macOS" icon="apple" href="/install/macos">
+    Copy the `.keylayout` bundles to `~/Library/Keyboard Layouts` with a single
+    shell script, or build a double-clickable `.pkg` installer. Full ligature
+    support for all five srak/srah keys.
+  </Card>
+  <Card title="Install on Linux" icon="linux" href="/install/linux">
+    Per-user XKB install to `~/.xkb` with no root required. Includes an
+    optional m17n input method for full ligature output on Linux desktops.
+  </Card>
+</CardGroup>

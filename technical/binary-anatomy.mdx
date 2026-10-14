@@ -1,0 +1,144 @@
+---
+title: "kbdkni.dll Binary Structure: Tables, Entries, and Ligatures"
+sidebarTitle: "Binary Anatomy"
+description: "Detailed breakdown of the kbdkni.dll KbdLayerDescriptor structure: character sub-tables, entry format, modifier numbering, and the five-entry ligature table."
+---
+
+This page documents the binary layout of `kbdkni.dll` as decoded by the structural analysis. Every field shown has been confirmed by comparison with Windows: the structural decode and the `ToUnicodeEx` behavioural oracle agree on 144 of 144 comparisons with zero mismatches. Where a field was observed but its meaning was not established, that is stated explicitly in the [Not decoded](#not-decoded) section.
+
+## The KbdLayerDescriptor
+
+Every `kbd*.dll` exports `KbdLayerDescriptor`, which returns a pointer to a descriptor. Offsets below are for 64-bit Windows.
+
+| Offset | Field | Notes |
+| :-- | :-- | :-- |
+| `+0x00` | `pCharModifiers` | modifier-state numbering |
+| `+0x08` | `pVkToWcharTable` | four character sub-tables |
+| `+0x10` | `pDeadKey` | `NULL` — NiDA defines no dead keys |
+| `+0x18` | `pKeyNames` | key-name tables |
+| `+0x20` | `pKeyNamesExt` | |
+| `+0x28` | `pKeyNamesDead` | `NULL` |
+| `+0x30` | `puVKeyToCodes` | virtual-key remap list, 127 entries |
+| `+0x38` | `cbVKeyToCodes` | `0x7F` |
+| `+0x40` | `pTypedef` | shared keyboard typedef list |
+| `+0x50` | flags | `0x00010001` (Khmer layouts); meaning unconfirmed |
+| `+0x54` | `nLgMax` | `2` — max characters in one ligature |
+| `+0x55` | `cbLgEntry` | `8` — size of one ligature record |
+| `+0x58` | `pLigature` | ligature table |
+
+<Note>
+Earlier drafts of this document placed the ligature fields at `+0x72`/`+0x74` and read `pLigature` from `+0x50`. Those offsets are wrong on 64-bit: doing so yields a nonsensical pointer such as `0x80200010001`. The offsets above are confirmed by decoding real data.
+</Note>
+
+## Character sub-tables
+
+`pVkToWcharTable` is an array of 16-byte descriptors, terminated by a null pointer:
+
+| Offset | Type | Field |
+| :-- | :-- | :-- |
+| `+0x00` | `PVOID` | table pointer |
+| `+0x08` | `BYTE` | `cStates` — modifier states stored per key |
+| `+0x09` | `BYTE` | `cbEntry` — always `2 * (1 + cStates)` |
+| `+0x0A` | `USHORT` | `0` |
+
+For `kbdkni.dll` specifically:
+
+| Index | `cStates` | `cbEntry` | Entries | Role |
+| :-- | :-- | :-- | :-- | :-- |
+| 0 | 3 | 8 | 4 | special keys (Backspace, Escape, Enter, Ctrl+C) |
+| 1 | 4 | 10 | 49 | **main character map** |
+| 2 | 2 | 6 | 5 | base characters for keys missing from table 1 |
+| 3 | 1 | 4 | 10 | base characters for keypad digits |
+
+Only table 1 has a slot count equal to the layout's modifier-state count, so it is the only one whose slots are confirmed to be indexed by modifier number — and that is the one the `ToUnicodeEx` cross-check validates. The others are emitted with neutral slot labels (`Slot0`, `Slot1`, …).
+
+For all three layouts dumped (NiDA, legacy Khmer, US) the main table and tables 2/3 are **completely disjoint** — zero overlapping virtual keys — so each key is defined exactly once. `kbdus.dll` uses the identical four-table shape with the same state counts, which confirms the format is general rather than something specific to Khmer.
+
+## Entry format
+
+Each entry is `cbEntry` bytes and holds one virtual key plus one code point per modifier state:
+
+```c
+struct KbdCharEntry {          // cbEntry bytes
+    USHORT vk;                 // +0x00  virtual key
+    USHORT wchar[cStates];     // +0x02  one code point per modifier state
+};
+```
+
+Two reserved values appear in the `wchar` slots:
+
+| Value | Meaning |
+| :-- | :-- |
+| `0xF000` | No character is emitted in this state |
+| `0xF002` | Character resolves through the ligature table |
+
+`0xF002` in a slot combined with a matching `(vk, modNumber)` entry in the ligature table is exactly how a multi-character keystroke is expressed. NiDA uses it five times — see [Ligature table](#ligature-table) below.
+
+## Ligature table
+
+`pLigature` is an array of `cbLgEntry`-byte records, terminated by an all-zero record:
+
+```c
+struct KbdLigature {           // cbLgEntry bytes
+    BYTE   vk;                 // +0x00
+    BYTE   reserved;           // +0x01
+    USHORT modNumber;          // +0x02
+    WCHAR  text[nLgMax];       // +0x04  n-th is 0-terminated / zero-padded
+};
+```
+
+NiDA: `nLgMax = 2`, `cbLgEntry = 8`, five records.
+
+| Key | State | Output | Code points |
+| :-- | :-- | :-- | :-- |
+| `A` (`0x41`) | Shift | ាំ | `U+17B6 U+17C6` |
+| `V` (`0x56`) | Shift | េះ | `U+17C1 U+17C7` |
+| `;` (`0xBA`) | Shift | ោះ | `U+17C4 U+17C7` |
+| `,` (`0xBC`) | Normal | ុំ | `U+17BB U+17C6` |
+| `,` (`0xBC`) | Shift | ុះ | `U+17BB U+17C7` |
+
+These are the Khmer *srak* (word-final) and *srah* sequences: typing ាំ needs one keystroke instead of two.
+
+## Secondary tables
+
+### Special keys (table 0)
+
+Slot 2 is **verified** to be the Control character — confirmed by probing `ToUnicodeEx` with `VK_CONTROL` held on all four entries:
+
+| Key | Normal | Shift | Control |
+| :-- | :-- | :-- | :-- |
+| Backspace | `U+0008` | `U+0008` | `U+007F` (Delete) |
+| Escape | `U+001B` | `U+001B` | `U+001B` |
+| Enter | `U+000D` | `U+000D` | `U+000A` (Line feed) |
+| Ctrl+C | `U+0003` | `U+0003` | `U+0003` |
+
+### Base-character fallback (tables 2 and 3)
+
+These carry the *unshifted* character for keys that are absent from the main table — not control characters. Holding Ctrl on these keys produces nothing; their stored values equal the plain unshifted character.
+
+| Table | Entries | Keys |
+| :-- | :-- | :-- |
+| 2 | 5 | Tab, keypad `+ - * /` |
+| 3 | 10 | keypad `0`–`9` → matching digits |
+
+## Findings that behavioural probing alone would miss
+
+Reading the tables directly revealed facts the `ToUnicodeEx` oracle cannot surface:
+
+1. **`Space` is the zero-width space and `Shift+Space` the real space.** A probe that samples only printable output tends to obscure this.
+2. **NiDA defines no Control characters at all.** Every printable key's Control slot is `0xF000`, so Windows synthesises `^C`, `^V` and friends. The legacy layout is the same.
+3. **NiDA has no `Shift+AltGr` state.** Legacy Khmer has a fifth modifier state holding `U+19E0..U+19FF` — a block of Khmer symbols that NiDA users cannot reach at all.
+4. **The ligature mechanism is keyed by `(vk, modifier number)`, not by chord string**, and it is the *only* place a keystroke may emit more than one code point. A re-implementation that treats ligatures as dead keys will order the two code points backwards.
+5. **Keypad decimal (`0x6E`) produces `,` and `.`** — its scan code (`0x53E`) is outside the `0x01..0x58` range a naive behavioural probe covers, so the oracle misses it entirely.
+
+## Not decoded
+
+Stated plainly so the record is honest about its limits. None of these affect the character mapping, which is fully verified.
+
+| Field | Status |
+| :-- | :-- |
+| Descriptor `+0x50` flags | Value observed (`0x00010001` for both Khmer layouts, `0x00010000` for US); meaning not established |
+| `pVkToBit` mask per key | Dumped verbatim; bit semantics not established |
+| `puVKeyToCodes` / `cbVKeyToCodes` | Dumped; not interpreted |
+| `pTypedef` | Shared typedef list; not interpreted |
+| Key-name tables | Located; not needed for character mapping |

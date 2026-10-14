@@ -1,72 +1,88 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mintlify Starter Kit",
+  "name": "Better-NiDA",
+  "theme": "willow",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#9ca4aa",
+    "light": "#3e4554",
+    "dark": "#d7d8db"
   },
-  "favicon": "/favicon.svg",
-  "navigation": {
-    "pages": [
-      {
-        "group": "Getting Started",
-        "pages": [
-          "index",
-          "quickstart"
-        ]
-      }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
-  },
+  "favicon": "https://media.brand.dev/152ccb2b-69a9-47fb-928b-49054eb5df87.jpg",
   "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:support@mintlify.com"
-      }
-    ],
     "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://app.mintlify.com"
+      "type": "github",
+      "href": "https://github.com/airiharuki/Better-NiDA"
     }
-  },
-  "contextual": {
-    "options": [
-      "copy",
-      "view",
-      "chatgpt",
-      "claude",
-      "perplexity",
-      "mcp",
-      "cursor",
-      "vscode"
-    ]
   },
   "footer": {
     "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
+      "github": "https://github.com/airiharuki/Better-NiDA"
     }
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Installation",
+            "pages": [
+              "install/macos",
+              "install/linux"
+            ]
+          },
+          {
+            "group": "Layout Reference",
+            "pages": [
+              "reference/character-matrix",
+              "reference/ligatures",
+              "reference/nida-vs-legacy"
+            ]
+          },
+          {
+            "group": "Contributing",
+            "pages": [
+              "contributing/workflow",
+              "contributing/commit-guidelines",
+              "contributing/roadmap"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Technical Reference",
+        "groups": [
+          {
+            "group": "Reverse Engineering",
+            "pages": [
+              "technical/overview",
+              "technical/binary-anatomy",
+              "technical/modifier-states",
+              "technical/verification"
+            ]
+          },
+          {
+            "group": "Scripts",
+            "pages": [
+              "technical/scripts-windows",
+              "technical/scripts-portable"
+            ]
+          },
+          {
+            "group": "Artifacts",
+            "pages": [
+              "technical/artifacts"
+            ]
+          }
+        ]
+      }
+    ]
   }
 }

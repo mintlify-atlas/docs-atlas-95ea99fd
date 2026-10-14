@@ -1,0 +1,177 @@
+---
+title: "Commit and Versioning Guidelines for Better-NiDA"
+sidebarTitle: "Commit Guidelines"
+description: "Better-NiDA enforces Conventional Commits and Semantic Versioning. Learn the allowed commit types, message format, and how typing changes map to version bumps."
+---
+
+Every commit to Better-NiDA must follow [Conventional Commits v1.0.0](https://www.conventionalcommits.org/en/v1.0.0/). Releases are numbered according to [Semantic Versioning 2.0.0](https://semver.org/). Both are enforced because the project's generated artifacts — `nida_layout.json`, `macos/*.keylayout`, `linux/nida*` — are what a user actually types with, and the version number must communicate clearly whether an update changes that.
+
+---
+
+## Commit Message Format
+
+```
+<type>[optional scope]: <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+The `<type>` and `<description>` are required. Everything else is optional but encouraged for non-trivial changes.
+
+---
+
+## Allowed Commit Types
+
+| Type | Purpose | Example |
+| :--- | :--- | :--- |
+| `feat` | New feature or layout capability | `feat(layout): add automatic zero-width space emission rule` |
+| `fix` | Bug fix in tables, scripts, or outputs | `fix(decode): correct Slot0 neutral naming for control keys` |
+| `docs` | Documentation changes only | `docs: add CONTRIBUTING.md and CODE_OF_CONDUCT.md` |
+| `refactor` | Code change that neither fixes a bug nor adds a feature | `refactor(scripts): modularize Win32 pinvoke wrappers` |
+| `perf` | Performance improvement | `perf(validator): accelerate table comparison loop` |
+| `test` | Adding or correcting tests | `test(tables): add cross-validation for numpad states` |
+| `chore` | Maintenance tasks, repository configs | `chore: update .gitignore and release tooling` |
+
+---
+
+## Rules
+
+- Use **imperative, present tense** — write "add", not "added" or "adds".
+- **Do not capitalize** the first letter of the subject line.
+- **Do not place a period** at the end of the subject line.
+- Provide background reasoning in the **body** if the change is non-trivial. Reviewers and future contributors will thank you.
+
+---
+
+## Semantic Versioning
+
+Better-NiDA adheres strictly to `MAJOR.MINOR.PATCH`. Because the macOS and Linux layout files are generated from the spec, a change's version bump is determined by its **effect on what a user types**, not by the size of the diff.
+
+<AccordionGroup>
+  <Accordion title="MAJOR — incompatible layout changes">
+    Any change that alters what a user types: key repositioning, major remapping of primary characters, or any modification to `nida_layout.json`, `macos/*.keylayout`, or `linux/nida*` that produces different characters for existing keystrokes.
+
+    Examples: moving a consonant to a different key, reassigning a modifier level, changing the output of an existing ligature.
+  </Accordion>
+  <Accordion title="MINOR — backwards-compatible new functionality">
+    New capabilities that do not affect existing keystrokes: adding a new modifier level, adding new ligatures on previously unassigned keys, or adding support for a new platform target (QMK/ZMK firmware, a mobile IME).
+  </Accordion>
+  <Accordion title="PATCH — backwards-compatible fixes and documentation">
+    Changes that correct errors without altering user-visible output: table corrections, tooling fixes, packaging changes, documentation updates.
+  </Accordion>
+</AccordionGroup>
+
+<Note>
+  A change to `scripts/` that alters the generator's output is a **user-visible layout change**. Judge it as MAJOR or MINOR, not PATCH, even if the diff looks small.
+</Note>
+
+Git tags follow the format `v<MAJOR>.<MINOR>.<PATCH>` — for example, `v0.1.0`, `v0.3.1`.
+
+---
+
+## Release Process
+
+<Steps>
+  <Step title="Update CHANGELOG.md">
+    Move everything under `[Unreleased]` into a new version heading with today's date. Add the corresponding compare link at the bottom of the file, following the existing pattern.
+  </Step>
+  <Step title="Tag the commit">
+    ```bash
+    git tag -a vX.Y.Z -m "release: vX.Y.Z"
+    ```
+  </Step>
+  <Step title="Push the tag">
+    ```bash
+    git push origin vX.Y.Z
+    ```
+  </Step>
+  <Step title="Create the GitHub release">
+    ```bash
+    gh release create vX.Y.Z
+    ```
+    Attach any build artifacts (self-contained installers, layout bundles) to the release.
+  </Step>
+</Steps>
+
+---
+
+## Changelog
+
+The changelog follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and is grouped by release with an `[Unreleased]` section at the top. Because the layouts are generated, the bump level reflects what a user types — not how large the diff is.
+
+### Version History
+
+#### [Unreleased]
+
+No changes yet.
+
+---
+
+#### [0.3.1] — 2026-10-14
+
+**Added**
+- Self-contained installers as release assets: `install-nida.sh` (Linux) and `install-nida-macos.command` (macOS, double-clickable). Each embeds the layout data as a quoted heredoc so the layout remains readable inside the installer and editable after install.
+- `scripts/build_installers.ps1` builds and validates those installers: `bash -n` for syntax, and each embedded payload extracted and compared byte-for-byte against the source layout.
+- A **Testing Report** issue template and a `config.yml` contact link. The layouts have never been loaded on real hardware, so a short report from a Mac or Linux box is the most useful contribution available.
+
+**Fixed**
+- Scripts no longer call `LoadKeyboardLayout` with `KLF_ACTIVATE`. Repeated runs were accumulating duplicate Khmer and English entries in the user's input-method list. Activation was never needed: `ToUnicodeEx` and `MapVirtualKeyEx` both take the handle explicitly.
+
+**Changed**
+- Issue templates, `README.md`, and `CONTRIBUTING.md` now describe what the project actually does, including the two layout variants and the platform constraints that determine whether a layout proposal is feasible.
+- The reverse-engineering toolchain is documented as Windows-only and not portable, with the exact split between the five Win32-dependent scripts and the five portable ones.
+
+---
+
+#### [0.3.0] — 2026-10-14
+
+**Added**
+- Khmer NiDA keyboard layouts for macOS and Linux in both the NiDA and legacy Khmer variants, generated from the verified specification.
+  - macOS: Apple `.keylayout` bundles with the standard modifier map. All five ligatures are reproduced faithfully (macOS has no one-character-per-level limit).
+  - Linux: XKB `symbols` files — `FOUR_LEVEL` for NiDA, `EIGHT_LEVEL` for the legacy layout, covering Normal / Shift / Control / AltGr / Shift+AltGr.
+  - `linux/m17n/`: a ligature-capable input method for compound marks on Linux where XKB cannot express them.
+  - Installers: `linux/install.sh` (per-user, no root) and `macos/install.sh`, plus `macos/make-pkg.sh` which builds a double-clickable `.pkg`.
+- `scripts/build_platform_layouts.ps1` generates both platforms from one script so the variants cannot drift apart.
+- `scripts/verify_platform_layouts.ps1` validates the output structurally.
+- `scripts/verify_all.ps1` rebuilds and re-verifies the whole chain in one command; `-SkipRegenerate` verifies committed artifacts for CI.
+
+**Fixed**
+- Shell scripts and `.keylayout` files are pinned to LF in `.gitattributes`. `core.autocrlf=true` would have rewritten shebangs to `bash\r`, breaking every installer for anyone cloning from Windows.
+- XKB symbols files are no longer generated with CRLF endings.
+
+**Known limitations**
+- Layouts were produced and structurally checked on Windows and have not been loaded on macOS or Linux.
+- On Linux, XKB allows one character per key per level, so the five ligature keys emit only their first code point (affected lines are marked `LIGATURE truncated`).
+
+---
+
+#### [0.2.1] — 2026-10-14
+
+**Added**
+- Issue templates for bug reports, feature requests, and layout proposals, plus a `config.yml` routing general questions to Discussions.
+- Labels `needs triage` and `layout design` on the repository.
+
+---
+
+#### [0.2.0] — 2026-10-14
+
+**Added**
+- `nida_layout.json` regenerated from the verified table decode (the previous exporter silently produced an empty spec while reporting success).
+- `CONTRIBUTING.md` and `CODE_OF_CONDUCT.md`.
+
+**Fixed**
+- Scan codes resolved by inverting scan code → virtual key rather than querying virtual key → scan code. F7–F10 share virtual keys with letters A–D; the direct query reported the wrong key.
+- Modifier documentation corrected: bits map to modifier numbers (0→0, 1→1, 2→2, 3/4/5→invalid, 6→AltGr), not to Windows virtual keys.
+- Secondary-table slots labelled neutrally (`Slot0`, `Slot1`); only the main character table is verified to be indexed by modifier number.
+
+---
+
+#### [0.1.0] — 2026-10-14
+
+**Added**
+- Reverse engineering of the Khmer NiDA layout from `kbdkni.dll` and the legacy Khmer layout from `kbdkhmr.dll`.
+- `REVERSE_ENGINEERING_NIDA.md`: full binary specification — descriptor layout, the four character sub-tables, entry format, reserved values, the ligature table, modifier numbering, and the complete character matrix.
+- `nida_layout.json`, `tables_kbd*.json`, and behavioural probe CSVs.
+- `scripts/` to decode the driver tables and cross-check them against the Windows `ToUnicodeEx` API.

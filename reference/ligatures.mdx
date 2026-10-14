@@ -1,0 +1,73 @@
+---
+title: "Khmer NiDA Ligatures — Multi-Character Keystroke Reference"
+sidebarTitle: "Ligatures"
+description: "The five multi-character ligatures in Khmer NiDA: which keys emit srak and srah sequences, and how macOS and Linux handle them differently."
+---
+
+The Khmer NiDA driver defines five keys that emit **two Unicode code points in a single keystroke**. These are the Khmer *srak* (word-final vowel mark) and *srah* (vowel + HS combination) sequences. Rather than requiring two separate keystrokes to compose a mark, one key press produces the complete sequence. On Windows and macOS, all five ligatures work natively. On Linux XKB, only the first code point of each pair is emitted; a supplementary m17n input method is provided for the remaining output.
+
+## What Is a Ligature in This Context?
+
+In the NiDA driver's binary table format, a slot in the character map holds a reserved value of `0xF002` to signal that the output for that key and modifier state cannot be expressed as a single code point. When the driver sees `0xF002`, it looks up the actual output in a separate ligature table, indexed by `(virtual key, modifier number)`. Each ligature record stores up to two code points (`nLgMax = 2`) in a fixed 8-byte record (`cbLgEntry = 8`).
+
+This mechanism is the *only* way a single keystroke can emit more than one code point in this format. A re-implementation that treats ligatures as dead-key sequences will get the two code points in the wrong order — the ligature table is indexed by `(vk, modNumber)`, not by a chord string.
+
+## The Five Ligatures
+
+| Key | Modifier | Output | Code Points | Name |
+| :-- | :-- | :-- | :-- | :-- |
+| `A` | Shift | ាំ | U+17B6 U+17C6 | SRAK AM |
+| `V` | Shift | េះ | U+17C1 U+17C7 | SRAH EH |
+| `;` | Shift | ោះ | U+17C4 U+17C7 | SRAH AOH |
+| `,` | Normal | ុំ | U+17BB U+17C6 | SRAK OM |
+| `,` | Shift | ុះ | U+17BB U+17C7 | SRAK UH |
+
+Note that the comma key (`,`) carries ligatures in *both* its Normal and Shift states: unshifted `,` produces SRAK OM (ុំ) and shifted `,` produces SRAK UH (ុះ). The plain ASCII comma is therefore on `AltGr+,`.
+
+## Platform Support
+
+<Tabs>
+  <Tab title="macOS">
+    **Full ligature support.** The Apple `.keylayout` XML format natively supports multi-character output: any key action can specify a string of arbitrary length, not just a single code point. All five ligature keys emit both code points correctly in one keystroke with no additional configuration required.
+
+    The macOS layout files under `macos/` are generated directly from the verified `nida_layout.json` spec and faithfully reproduce all five ligatures as two-character output actions.
+  </Tab>
+  <Tab title="Linux">
+    **Partial support — XKB only.** The XKB symbol file format maps each key level to exactly one Unicode code point. There is no standard mechanism in XKB to assign a multi-character string to a level. As a result, the five ligature keys in the Linux XKB layout store only the **first code point** of each pair; the second code point is dropped.
+
+    The affected entries in the generated XKB file are annotated with a comment:
+
+    ```
+    grep LIGATURE ~/.xkb/symbols/nida
+    ```
+
+    This will show the five truncated entries so you can confirm which keys are affected on your system.
+
+    For full ligature support on Linux, use the **m17n input method** described below.
+  </Tab>
+</Tabs>
+
+<Warning>
+On Linux XKB, the five ligature keys silently emit only one code point. There is no error or warning at the application level — text that appears correct may be missing the second code point of the sequence. Use `grep LIGATURE ~/.xkb/symbols/nida` to see the truncated entries in the installed layout file.
+</Warning>
+
+## The Ligature Mechanism in Detail
+
+Internally the driver's ligature table is a flat array of records, each 8 bytes:
+
+```
+struct KbdLigature {
+    BYTE   vk;          // virtual key code
+    BYTE   reserved;
+    USHORT modNumber;   // modifier number (0=Normal, 1=Shift, 3=AltGr)
+    WCHAR  text[2];     // up to 2 code points; zero-padded
+};
+```
+
+The lookup key is `(vk, modNumber)` — a pair of integers, not a human-readable chord string. When a re-implementation models ligatures as dead keys (key A followed by key B = output), the two code points end up in the wrong order. The slot in the main character table always carries `0xF002`; the actual characters live exclusively in this separate table, in the order `text[0]` then `text[1]`.
+
+## m17n on Linux for Full Ligature Support
+
+For users who require all five ligatures on Linux, the repository ships an m17n input method definition under `linux/m17n/`. Unlike XKB, m17n supports multi-character output per keystroke and can reproduce the full srak/srah sequences faithfully.
+
+See the Linux installation guide for setup instructions, including how to enable the m17n method alongside or instead of the XKB layout.

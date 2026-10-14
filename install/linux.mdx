@@ -1,0 +1,202 @@
+---
+title: "Install Khmer NiDA Keyboard Layout on Linux"
+sidebarTitle: "Linux"
+description: "Install the Better-NiDA Khmer XKB keyboard layout on Linux with a per-user shell installer. No root access or system packages required beyond x11-xkb-utils."
+---
+
+Linux support is provided via XKB symbols files installed per-user to `~/.xkb`. No root access is required and no system files are modified — everything lives in your home directory. The only prerequisite is `x11-xkb-utils`.
+
+## Prerequisites
+
+Install `x11-xkb-utils` if it is not already present:
+
+```sh
+# Debian / Ubuntu
+sudo apt install x11-xkb-utils
+
+# Fedora
+sudo dnf install xorg-x11-xkb-utils
+```
+
+## Variants
+
+Two layouts are provided, both generated from the reverse-engineered Windows drivers:
+
+| File | Layout | Source driver |
+| :-- | :-- | :-- |
+| `nida` | Khmer NiDA | `kbdkni.dll` (KLID `00010453`) |
+| `nida_legacy` | Khmer NiDA Legacy | `kbdkhmr.dll` (KLID `00000453`) |
+
+They differ on about eight keys. Most visibly, NiDA puts the coeng subscript on `J` and the zero-width space on the spacebar, while the legacy layout swaps those around.
+
+---
+
+## Installation
+
+<Steps>
+  <Step title="Run the installer script">
+    From the `linux/` directory, run one of the following:
+
+    ```sh
+    cd linux
+    ./install.sh              # install both layouts and activate "nida"
+    ./install.sh nida_legacy  # install both layouts and activate the legacy layout instead
+    ```
+
+    The script copies both symbol files to `~/.xkb/symbols/` and registers them in `~/.xkb/rules/evdev.lst`. Running it a second time is safe — the operation is idempotent.
+  </Step>
+  <Step title="Persist the layout across logins">
+    `install.sh` activates the layout for your current session via `setxkbmap`. To keep it after reboot, add the command to your session startup file:
+
+    ```sh
+    echo 'setxkbmap -layout nida' >> ~/.xprofile
+    ```
+  </Step>
+</Steps>
+
+---
+
+## Enabling via your desktop environment
+
+If you prefer a graphical interface, most desktop environments list XKB layouts in their keyboard settings. After running `install.sh`, look under:
+
+**Keyboard → Layouts → Add → Others → search for "Khmer NiDA"**
+
+This works in GNOME, KDE, Xfce, and Cinnamon.
+
+---
+
+## Verifying the installation
+
+Use `verify.sh` to inspect the active layout and compare it against the spec:
+
+```sh
+./verify.sh          # inspect whichever layout is currently active
+./verify.sh nida     # inspect the nida layout without activating it
+```
+
+The script dumps the active keymap and prints a checklist of keys to confirm by hand. Spot-check these against the reference tables below.
+
+### Key reference
+
+| Key | Unshifted | Shift | AltGr (Right Alt) |
+| :-- | :-- | :-- | :-- |
+| `J` | `U+17D2` coeng | `U+1789` nyo | |
+| `Space` | `U+200B` ZWSP | `U+0020` real space | `U+00A0` NBSP |
+| `1` | `U+17E1` | `U+0021` | `U+200C` ZWNJ |
+| `-` | `U+17A5` | `U+17CC` | `U+00D7` |
+| `` ` `` | `U+00AB` | `U+00BB` | `U+200D` ZWJ |
+
+---
+
+## Ligature limitation
+
+<Warning>
+  **XKB cannot emit multiple characters from a single key press.** The five ligature keys in the Windows driver each produce two code points, but XKB maps exactly one character per key per level. As a result, these keys emit only the **first** code point:
+
+  | Key | Windows emits | XKB emits |
+  | :-- | :-- | :-- |
+  | `Shift+A` | `U+17B6 U+17C6` ាំ | `U+17B6` ា |
+  | `Shift+V` | `U+17C1 U+17C7` េះ | `U+17C1` េ |
+  | `Shift+;` | `U+17C4 U+17C7` ោះ | `U+17C4` ោ |
+  | `,` | `U+17BB U+17C6` ុំ | `U+17BB` ុ |
+  | `Shift+,` | `U+17BB U+17C7` ុះ | `U+17BB` ុ |
+
+  Every affected line in the generated symbols file is marked `LIGATURE truncated`. Find them with:
+
+  ```sh
+  grep LIGATURE ~/.xkb/symbols/nida
+  ```
+
+  For full ligature support on Linux, use the optional m17n input method described below.
+</Warning>
+
+---
+
+## Optional: ligatures via m17n
+
+The `m17n/` directory contains an input method definition that emits the complete two-character ligature sequences. This requires `m17n-lib`.
+
+<Steps>
+  <Step title="Install the input method definition">
+    ```sh
+    mkdir -p ~/.m17n
+    cp m17n/nida-nida.mim m17n/nida-nida.mim-cs ~/.m17n/
+    ```
+  </Step>
+  <Step title="Compile the definition">
+    ```sh
+    m17n-db < ~/.m17n/nida-nida.mim > ~/.m17n/nida-nida.mimdb
+    ```
+
+    The command must produce **no output**. Silence means the definition parsed successfully. Any output indicates a parse error that should be read and resolved before continuing.
+  </Step>
+  <Step title="Activate the input method">
+    Select `nida` in your desktop's input method settings, or export these environment variables in your session startup file:
+
+    ```sh
+    export XMODIFIERS=@im=nida
+    export GTK_IM_MODULE=m17n
+    export QT_IM_MODULE=m17n
+    ```
+  </Step>
+</Steps>
+
+---
+
+## Editing the layout
+
+The XKB symbols files are plain text. You can edit `~/.xkb/symbols/nida` directly and re-apply without logging out:
+
+```sh
+nano ~/.xkb/symbols/nida     # edit
+setxkbmap -layout nida        # re-apply immediately
+```
+
+A key line looks like this:
+
+```
+    key <AC07>  { U17D2, U1789, NoSymbol, U200D };
+```
+
+That is `J`: unshifted level, shifted level, control level, AltGr level. `NoSymbol` means the level intentionally produces nothing. Code points are written as `U` followed by four hex digits.
+
+To change how many levels a key accepts, edit the `key.type` near the top of the file (`FOUR_LEVEL` for `nida`, `EIGHT_LEVEL` for `nida_legacy`).
+
+---
+
+## Removing the layout
+
+```sh
+./install.sh --remove
+```
+
+This deletes both symbol files from `~/.xkb/symbols/` and strips the Better-NiDA registration block from `~/.xkb/rules/evdev.lst`. To switch back to a standard layout afterwards:
+
+```sh
+setxkbmap -layout us
+```
+
+---
+
+## Regenerating from source
+
+The symbol files are generated from a shared layout spec, not hand-written. Hand edits will be overwritten on the next regeneration. To regenerate, run the build scripts from the repository root on Windows:
+
+```powershell
+# On Windows
+pwsh ./scripts/build_platform_layouts.ps1
+pwsh ./scripts/verify_platform_layouts.ps1
+```
+
+---
+
+## Testing status
+
+<Warning>
+  These layout files were **generated on Windows** and verified structurally there — checks include XKB/symbol syntax, key names validated against `xkeyboard-config`, and every base symbol compared against `nida_layout.json`. They have **not** been loaded on a real Linux machine. Please run `./verify.sh` and the checklist above on real hardware before relying on these layouts in production.
+</Warning>
+
+<Note>
+  If you test these layouts on real Linux hardware, please **open a Testing Report issue** in the repository and share what worked and what didn't. Your feedback directly improves the project for everyone.
+</Note>

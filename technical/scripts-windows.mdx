@@ -1,0 +1,136 @@
+---
+title: "Windows-Only PowerShell Scripts Reference"
+sidebarTitle: "Windows Scripts"
+description: "Reference for the five PowerShell scripts that require Windows: they load kbdkni.dll via LoadLibrary and call ToUnicodeEx and MapVirtualKeyEx to decode and probe the driver."
+---
+
+Five scripts in Better-NiDA require Windows because they load the keyboard driver DLL via `kernel32!LoadLibrary` and call Windows APIs (`user32!ToUnicodeEx`, `user32!MapVirtualKeyEx`). These cannot be ported — the DLL and APIs do not exist on other platforms. A sixth script, `verify_all.ps1`, drives these five and therefore also requires Windows.
+
+## Prerequisite
+
+Windows 10 or 11, PowerShell 5.1+ or PowerShell 7+.
+
+---
+
+## verify_all.ps1 — the umbrella script
+
+**Purpose:** rebuilds and re-verifies everything from scratch in the correct order. Exits non-zero if any stage or check fails.
+
+```powershell
+.\scripts\verify_all.ps1
+.\scripts\verify_all.ps1 -SkipRegenerate    # verify only, for CI
+```
+
+### Stages
+
+```
+1–3  decode driver tables (kbdkni, kbdkhmr, kbdus)
+4–6  probe layout behaviour, with and without Control
+7    refresh official Unicode character names
+8    rebuild nida_layout.json
+9    generate the macOS .keylayout and Linux XKB files
+
+CHECK  NiDA tables vs ToUnicodeEx            144/144, 0 mismatches
+CHECK  legacy Khmer tables vs ToUnicodeEx    144/144, 0 mismatches
+CHECK  secondary tables vs Control             4/4
+CHECK  macOS + Linux layout files            structural
+```
+
+<Note>
+  `verify_all.ps1` drives the Windows-only scripts, so it only completes on Windows. Run the individual [portable scripts](/technical/scripts-portable) directly if you are on macOS or Linux.
+</Note>
+
+---
+
+## dump_kbd_tables.ps1
+
+**Purpose:** loads the keyboard driver DLL in-process, calls `KbdLayerDescriptor()`, walks the descriptor, and writes the decoded tables to JSON and CSV.
+
+```powershell
+.\scripts\dump_kbd_tables.ps1 -Dll kbdkni.dll
+.\scripts\dump_kbd_tables.ps1 -Dll kbdkhmr.dll
+.\scripts\dump_kbd_tables.ps1 -Dll kbdus.dll
+```
+
+**Outputs:** `tables_kbd<name>.json` and `tables_kbd<name>.csv`
+
+**Windows dependency:** `LoadLibrary` + the DLL's `KbdLayerDescriptor` export.
+
+---
+
+## dump_layout.ps1
+
+**Purpose:** behavioural probe — calls `ToUnicodeEx` for every scan code in every modifier state. Independent of the binary format of the DLL; serves as a second, orthogonal source of truth.
+
+```powershell
+.\scripts\dump_layout.ps1
+```
+
+**Outputs:** `kni_layout.csv` (NiDA), `khmr_layout.csv` (legacy Khmer)
+
+**Windows dependency:** `user32!ToUnicodeEx`
+
+---
+
+## dump_layout_control.ps1
+
+**Purpose:** same behavioural probe with `VK_CONTROL` held, used to verify what slot 2 of the special-keys table contains.
+
+```powershell
+.\scripts\dump_layout_control.ps1
+```
+
+**Outputs:** `kni_control.csv`, `us_control.csv`
+
+**Windows dependency:** `user32!ToUnicodeEx`
+
+---
+
+## export_nida_spec.ps1
+
+**Purpose:** builds `nida_layout.json` from the decoded tables. Uses `MapVirtualKeyEx` to resolve scan codes from virtual keys.
+
+```powershell
+.\scripts\export_nida_spec.ps1
+```
+
+**Outputs:** `nida_layout.json`
+
+**Windows dependency:** `MapVirtualKeyEx` for scan code resolution.
+
+<Note>
+  F7–F10 share virtual keys with A–D; the script inverts the scan → VK mapping to avoid reporting the wrong key.
+</Note>
+
+---
+
+## build_platform_layouts.ps1
+
+**Purpose:** generates macOS `.keylayout` bundles and Linux XKB symbols files from `nida_layout.json`. Produces both NiDA and Legacy variants.
+
+```powershell
+.\scripts\build_platform_layouts.ps1                    # both variants
+.\scripts\build_platform_layouts.ps1 -Variant nida      # NiDA only
+.\scripts\build_platform_layouts.ps1 -Variant legacy    # Legacy only
+```
+
+### Parameters
+
+| Parameter | Values | Default |
+| :-- | :-- | :-- |
+| `-Variant` | `both` \| `nida` \| `legacy` | `both` |
+
+### Outputs
+
+| File | Description |
+| :-- | :-- |
+| `macos/Khmer NiDA.keylayout` | Apple XML keylayout for Khmer NiDA |
+| `macos/Khmer NiDA Legacy.keylayout` | Apple XML keylayout for the legacy variant |
+| `linux/nida` | XKB symbols file, `FOUR_LEVEL` |
+| `linux/nida_legacy` | XKB symbols file, `EIGHT_LEVEL` |
+
+**Windows dependency:** `MapVirtualKeyEx` for scan codes. The mapping could be replaced with a static table to make this script portable — open an issue if you are interested.
+
+<Note>
+  The script forces LF line endings to prevent CRLF-tainted XKB files. A CRLF-tainted tab-separated key line is rejected by `xkbcomp`.
+</Note>

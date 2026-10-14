@@ -1,0 +1,137 @@
+---
+title: "Contributing to Better-NiDA: Development Workflow"
+sidebarTitle: "Workflow"
+description: "How to contribute to Better-NiDA: prerequisites, running the build pipeline, testing on real hardware, and submitting pull requests."
+---
+
+Contributions to Better-NiDA are welcome from developers, linguists, typographers, and keyboard enthusiasts. The project aims to build a more modern, ergonomic, and complete typing experience for the Khmer language — and every kind of expertise helps.
+
+## Ways to Contribute
+
+- **Testing on real hardware (macOS or Linux)** — this is the single most valuable contribution right now. The layouts have been structurally verified on Windows but have never been loaded on a real Mac or Linux machine.
+- **Proposing ergonomic enhancements** — share data, letter frequency analyses, or typing dynamics for modern Khmer script. Proposals without supporting data will be deferred to Phase 3.
+- **Improving layout data** — refine mappings, add support for missing characters, or expand to additional modifier levels.
+- **Cross-platform implementations** — help port Better-NiDA to QMK/ZMK firmware or mobile IMEs.
+- **Tooling and validation** — enhance test coverage, cross-validation scripts, or automated CI pipelines.
+- **Documentation** — improve guides, tutorials, and reverse-engineering notes.
+
+---
+
+## Prerequisites
+
+- **Windows 10/11** with PowerShell 5.1+ or PowerShell 7+ — required for the full analysis toolchain.
+- **Git**
+
+<Note>
+  The analysis toolchain is **Windows-only and cannot be ported**. It reads
+  `C:\Windows\System32\kbdkni.dll` via `kernel32!LoadLibrary`, calls its
+  `KbdLayerDescriptor` export, and uses `user32!ToUnicodeEx` and
+  `MapVirtualKeyEx` as the oracle. Neither the driver nor those Win32 APIs exist
+  on macOS or Linux. If you are on macOS or Linux, you can still do useful work:
+  the five portable scripts run anywhere, the platform layouts are plain files
+  you can edit and test, and real-hardware testing is what the project most
+  needs.
+</Note>
+
+---
+
+## The Build Pipeline
+
+The scripts split cleanly into those that require Windows and those that run anywhere with PowerShell:
+
+| Needs Windows | Runs anywhere (PowerShell) |
+| :-- | :-- |
+| `dump_kbd_tables.ps1` | `verify_tables.ps1` |
+| `dump_layout.ps1` | `verify_control.ps1` |
+| `dump_layout_control.ps1` | `verify_platform_layouts.ps1` |
+| `export_nida_spec.ps1` | `build_unicode_names.ps1` (needs network) |
+| `build_platform_layouts.ps1` | `render_docs.ps1` |
+
+### One Command to Rebuild Everything
+
+On Windows, a single script drives the entire chain — decoding the driver tables, running behavioural probes, refreshing the Unicode name table, rebuilding `nida_layout.json`, and regenerating the macOS and Linux layouts, then running all four checks:
+
+```powershell
+pwsh ./scripts/verify_all.ps1
+```
+
+It exits non-zero if any stage or check fails, so it is safe to use in CI.
+
+To verify the committed artifacts without regenerating them:
+
+```powershell
+pwsh ./scripts/verify_all.ps1 -SkipRegenerate
+```
+
+---
+
+## The Generator Is the Source of Truth
+
+`macos/*.keylayout`, `linux/nida`, and `linux/nida_legacy` are **generated files**. Editing them by hand works today but will be overwritten on the next pipeline run. If you want to change layout behaviour, change `scripts/build_platform_layouts.ps1` instead and re-run the chain.
+
+The same applies to `nida_layout.json` and the `tables_kbd*.json` files.
+
+---
+
+## Testing on Real Hardware
+
+Hardware testing is the most important open task. The structural checks prove the files are valid; they cannot prove the OS accepts and applies them. Even a short "it works" report is worth filing.
+
+<Steps>
+  <Step title="Linux">
+    ```bash
+    cd linux && ./install.sh && ./verify.sh
+    ```
+    `verify.sh` prints the active keymap and a key checklist. Note anything unexpected.
+  </Step>
+  <Step title="macOS">
+    ```bash
+    cd macos && ./install.sh
+    ```
+    Then work through the checklist in `macos/README.md` to confirm the layout appears in the input-source menu and all keys produce the right characters.
+  </Step>
+  <Step title="File a Testing Report issue">
+    Open a **Testing Report** issue on GitHub using the provided template. Record your OS version, what worked, and any keys or characters that did not behave as expected. Even a clean pass is worth recording.
+  </Step>
+</Steps>
+
+| Platform | How to test |
+| :-- | :-- |
+| Linux | `cd linux && ./install.sh && ./verify.sh` |
+| macOS | `cd macos && ./install.sh`, then the `macos/README.md` checklist |
+
+---
+
+## Pull Request Process
+
+<Steps>
+  <Step title="Fork & branch from main">
+    ```bash
+    git checkout -b feat/ergonomic-home-row
+    ```
+    Use a descriptive branch name that reflects the scope of your change.
+  </Step>
+  <Step title="Make focused, atomic commits">
+    Keep each commit to one logical change and write a [Conventional Commit](/contributing/commit-guidelines) message. Reviewers should be able to understand every commit in isolation.
+  </Step>
+  <Step title="Run validation">
+    ```powershell
+    pwsh ./scripts/verify_tables.ps1
+    ```
+    On Windows, run the full suite instead:
+    ```powershell
+    pwsh ./scripts/verify_all.ps1
+    ```
+    All checks must pass before opening a PR.
+  </Step>
+  <Step title="Update documentation">
+    If you modified mappings, added characters, or changed any user-visible behaviour, update the relevant documentation (`README.md`, `REVERSE_ENGINEERING_NIDA.md`, or docs pages) in the same PR.
+  </Step>
+  <Step title="Open a pull request">
+    Provide a clear summary of what was changed and why. Reference any related issues (e.g. `Closes #12`) and confirm that all scripts pass without regressions.
+  </Step>
+</Steps>
+
+<Note>
+  This project follows the [Contributor Covenant Code of Conduct](https://github.com/airiharuki/Better-NiDA/blob/main/CODE_OF_CONDUCT.md). By participating, you are expected to uphold it. Report unacceptable behaviour to [sovannreachmakara@outlook.com](mailto:sovannreachmakara@outlook.com).
+</Note>

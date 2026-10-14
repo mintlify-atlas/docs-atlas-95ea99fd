@@ -1,0 +1,107 @@
+{
+  "projectType": "general",
+  "projectName": "Better-NiDA",
+  "projectDescription": "A reverse-engineered, cross-platform keyboard layout project that improves the standard Khmer NiDA layout for a better typing experience on macOS and Linux.",
+  "theme": "willow",
+  "primaryColor": "#9ca4aa",
+  "lightColor": "#3e4554",
+  "darkColor": "#d7d8db",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Installation",
+            "pages": [
+              "install/macos",
+              "install/linux"
+            ]
+          },
+          {
+            "group": "Layout Reference",
+            "pages": [
+              "reference/character-matrix",
+              "reference/ligatures",
+              "reference/nida-vs-legacy"
+            ]
+          },
+          {
+            "group": "Contributing",
+            "pages": [
+              "contributing/workflow",
+              "contributing/commit-guidelines",
+              "contributing/roadmap"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Technical Reference",
+        "groups": [
+          {
+            "group": "Reverse Engineering",
+            "pages": [
+              "technical/overview",
+              "technical/binary-anatomy",
+              "technical/modifier-states",
+              "technical/verification"
+            ]
+          },
+          {
+            "group": "Scripts",
+            "pages": [
+              "technical/scripts-windows",
+              "technical/scripts-portable"
+            ]
+          },
+          {
+            "group": "Artifacts",
+            "pages": [
+              "technical/artifacts"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Full reverse engineering of kbdkni.dll via KbdLayerDescriptor and ToUnicodeEx — 144/144 matches, zero mismatches",
+    "Authoritative nida_layout.json spec covering all 49 keys, 4 modifier states, and 5 multi-character ligatures",
+    "macOS .keylayout bundles with full ligature support (all five srak/srah sequences)",
+    "Linux XKB symbols files with partial ligature support and optional m17n input method for full ligatures",
+    "Self-contained shell installers for both platforms — no repository clone required",
+    "Reproducible, deterministic build pipeline via verify_all.ps1 with byte-identical output",
+    "Comparison with legacy Khmer layout (kbdkhmr.dll) exposing the missing Shift+AltGr symbol block",
+    "Unicode Character Database integration for official Khmer character names"
+  ],
+  "publicApiSurface": [
+    "scripts/verify_all.ps1 [-SkipRegenerate]",
+    "scripts/dump_kbd_tables.ps1 -Dll <kbdkni.dll|kbdkhmr.dll|kbdus.dll>",
+    "scripts/dump_layout.ps1",
+    "scripts/dump_layout_control.ps1",
+    "scripts/verify_tables.ps1 -TablesCsv <file> -ProbeCsv <file>",
+    "scripts/verify_control.ps1",
+    "scripts/export_nida_spec.ps1",
+    "scripts/build_platform_layouts.ps1 [-Variant <both|nida|legacy>]",
+    "scripts/verify_platform_layouts.ps1",
+    "scripts/build_unicode_names.ps1",
+    "scripts/render_docs.ps1",
+    "scripts/build_installers.ps1",
+    "linux/install.sh [nida|nida_legacy|--remove]",
+    "linux/verify.sh [nida|nida_legacy]",
+    "macos/install.sh",
+    "macos/make-pkg.sh",
+    "nida_layout.json",
+    "tables_kbdkni.json / tables_kbdkni.csv",
+    "tables_kbdkhmr.json / tables_kbdkhmr.csv",
+    "tables_kbdus.json / tables_kbdus.csv"
+  ]
+}

@@ -1,0 +1,104 @@
+---
+title: "Cross-Platform PowerShell Scripts Reference"
+sidebarTitle: "Portable Scripts"
+description: "Reference for the five PowerShell scripts that run on Windows, macOS, and Linux: verification, platform layout validation, Unicode name refresh, and documentation rendering."
+---
+
+Five scripts in Better-NiDA are pure data — they operate on committed JSON and CSV files, with no Win32 API calls. They run anywhere PowerShell (5.1 or 7+) is available: Windows, macOS, and Linux.
+
+<Note>
+  If you are on macOS or Linux, these are the scripts you can run directly. The [Windows-only scripts](/technical/scripts-windows) cannot be ported; their outputs are already committed to the repository.
+</Note>
+
+---
+
+## verify_tables.ps1
+
+**Purpose:** compares the decoded tables CSV against the behavioural probe CSV. Exits non-zero on any mismatch. CI-friendly.
+
+```powershell
+.\scripts\verify_tables.ps1 -TablesCsv tables_kbdkni.csv -ProbeCsv kni_layout.csv
+.\scripts\verify_tables.ps1 -TablesCsv tables_kbdkhmr.csv -ProbeCsv khmr_layout.csv
+```
+
+### Parameters
+
+| Parameter | Description |
+| :-- | :-- |
+| `-TablesCsv` | Path to the structural decode CSV (output of `dump_kbd_tables.ps1`) |
+| `-ProbeCsv` | Path to the behavioural probe CSV (output of `dump_layout.ps1`) |
+
+**Exit codes:** `0` = all comparisons match; non-zero = mismatch count
+
+---
+
+## verify_control.ps1
+
+**Purpose:** checks the secondary tables against the Control probe. Confirms that slot 2 of table 0 is the Control character.
+
+```powershell
+.\scripts\verify_control.ps1
+```
+
+**Expected result:** 4/4, 0 mismatches
+
+---
+
+## verify_platform_layouts.ps1
+
+**Purpose:** validates the generated macOS and Linux layout files structurally — XML well-formedness, no duplicate key codes, non-empty base layer, ligatures byte-compared against `nida_layout.json`, XKB brace/level sanity, base symbols present.
+
+```powershell
+.\scripts\verify_platform_layouts.ps1
+```
+
+<Note>
+  This script does **not** load the layouts on macOS or Linux. Structural validation catches malformed files, but cannot confirm whether a desktop environment will list the layout in its input method menu. Testing on real hardware is the most useful contribution available. See [CONTRIBUTING.md](https://github.com/airiharuki/Better-NiDA/blob/main/CONTRIBUTING.md) for the testing checklist.
+</Note>
+
+---
+
+## build_unicode_names.ps1
+
+**Purpose:** fetches official Unicode character names from the Unicode Character Database (UCD) and writes `scripts/data/unicode_names.json`. Requires network access.
+
+```powershell
+.\scripts\build_unicode_names.ps1
+```
+
+**Output:** `scripts/data/unicode_names.json`
+
+<Note>
+  Run this to refresh names when Unicode releases a new version. The committed file is up-to-date for the characters used in the current layouts.
+</Note>
+
+---
+
+## render_docs.ps1
+
+**Purpose:** renders markdown tables from the spec. Used to produce the human-readable layout documentation from `nida_layout.json`.
+
+```powershell
+.\scripts\render_docs.ps1
+```
+
+---
+
+## build_installers.ps1
+
+**Purpose:** builds and validates the self-contained shell installers (`install-nida.sh` for Linux, `install-nida-macos.command` for macOS). Validates each installer with `bash -n` and byte-compares embedded payloads against source layouts.
+
+```powershell
+.\scripts\build_installers.ps1
+```
+
+**Outputs:** self-contained installer scripts as release assets
+
+| Output file | Platform | Notes |
+| :-- | :-- | :-- |
+| `dist/install-nida.sh` | Linux | Both XKB layouts embedded as heredocs |
+| `dist/install-nida-macos.command` | macOS | Both `.keylayout` files embedded; double-clickable in Finder |
+
+<Note>
+  The embedded payload is extracted and compared byte-for-byte against the source layout files during the build, so a corrupted or truncated embed fails here rather than on a user's machine.
+</Note>

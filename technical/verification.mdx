@@ -1,0 +1,104 @@
+---
+title: "Verification Pipeline: Proving the Decode is Faithful"
+sidebarTitle: "Verification"
+description: "How Better-NiDA proves its character tables match Windows: two independent decoding paths, 144/144 ToUnicodeEx comparisons, and what the checks do and do not prove."
+---
+
+Better-NiDA's verification pipeline uses two independent methods to prove the decoded tables match Windows exactly, then checks the generated platform files structurally. The result is a reproducible, CI-friendly claim: the character mapping is faithful to the Windows driver, and the generated layouts are well-formed.
+
+## The two independent paths
+
+Every code point in `nida_layout.json` arrives through two completely separate routes before being accepted:
+
+1. **Structural decode.** Load `kbdkni.dll` in-process, call `KbdLayerDescriptor()`, and walk the descriptor into the layout's own tables. This reads the layout as data, with no Windows in the loop. Produces `tables_kbdkni.csv`.
+
+2. **Behavioural probe.** Call `ToUnicodeEx()` for every scan code in every modifier state. This is completely independent of any assumption about the DLL's file format. Produces `kni_layout.csv`.
+
+3. **Control probe.** Repeat the behavioural probe with `VK_CONTROL` held, to verify that slot 2 of the special-keys table is the Control character — the one question the first probe alone could not settle. Produces `kni_control.csv`.
+
+`scripts/verify_tables.ps1` then compares both CSVs entry by entry and exits non-zero on any disagreement, making the claim reproducible rather than asserted.
+
+## Cross-check results
+
+```
+comparisons made : 144  (NiDA, 48 keys × Normal/Shift/AltGr)
+mismatches       : 0
+
+control probe    : 4    (special keys × Control)
+mismatches       : 0     → slot 2 is the Control character, confirmed
+```
+
+The same checks are also run against the legacy Khmer layout as a structural control:
+
+```
+comparisons made : 144  (legacy Khmer, 48 keys × Normal/Shift/AltGr)
+mismatches       : 0
+```
+
+## What the checks prove
+
+The three Windows checks prove that the decode is faithful to Windows:
+
+- The structural tables and the behavioural oracle agree on every character in every modifier state.
+- Slot 2 of the special-keys table is the Control character, not a base character (an earlier draft of this document made the wrong claim; the Control probe disproved it).
+- The generated `nida_layout.json` spec is a faithful representation of what `kbdkni.dll` actually contains.
+
+The platform check validates structure only:
+
+- XML well-formedness of the macOS `.keylayout` files
+- No duplicate key codes
+- Non-empty base layer
+- Ligatures compared byte-for-byte against `nida_layout.json`
+- XKB brace/level sanity and key names validated against `xkeyboard-config`
+
+## What the checks do NOT prove
+
+<Warning>
+None of the automated checks load a layout on macOS or Linux. The analysis host is Windows 11 Enterprise, 26H2, build 26300.9550, and no Mac or Linux machine was involved. The platform checks catch a malformed file; they cannot tell you whether a desktop will list the layout at all — which is exactly the class of bug most likely to have been shipped. Each platform ships a test script (`linux/verify.sh` and the checklist in `macos/README.md`) for manual validation on real hardware.
+</Warning>
+
+## Reproducibility
+
+The generated artifacts are byte-identical after a clean run. Any diff after a run means a real change has occurred — no non-determinism from timestamps, ordering, or toolchain version. Use `-SkipRegenerate` to verify the committed artifacts in CI without regenerating them.
+
+## Running verification
+
+```powershell
+# Full rebuild and verify (Windows only — loads the driver DLLs)
+.\scripts\verify_all.ps1
+
+# Verify committed artifacts only (CI-friendly, runs anywhere PowerShell does)
+.\scripts\verify_all.ps1 -SkipRegenerate
+
+# Individual steps
+.\scripts\verify_tables.ps1 -TablesCsv tables_kbdkni.csv  -ProbeCsv kni_layout.csv
+.\scripts\verify_tables.ps1 -TablesCsv tables_kbdkhmr.csv -ProbeCsv khmr_layout.csv
+.\scripts\verify_control.ps1
+.\scripts\verify_platform_layouts.ps1
+```
+
+`verify_all.ps1` runs nine generation stages followed by four checks and exits non-zero if any stage or check fails:
+
+```
+1-3  decode driver tables (kbdkni, kbdkhmr, kbdus)
+4-6  probe layout behaviour, with and without Control
+7    refresh official Unicode character names
+8    rebuild nida_layout.json
+9    generate the macOS .keylayout and Linux XKB files
+
+CHECK  NiDA tables vs ToUnicodeEx            144/144, 0 mismatches
+CHECK  legacy Khmer tables vs ToUnicodeEx    144/144, 0 mismatches
+CHECK  secondary tables vs Control             4/4
+CHECK  macOS + Linux layout files            structural
+```
+
+## Verification status summary
+
+| Claim | Basis |
+| :-- | :-- |
+| Table decode is faithful to Windows | 144/144 `ToUnicodeEx` comparisons per Khmer layout |
+| Table 0 slot 2 is the Control character | 4/4 with Control held |
+| Generated artifacts are reproducible | Byte-identical after clean run |
+| macOS layouts are well-formed | XML validity, no duplicate key codes, 5/5 ligatures |
+| Linux symbols are syntactically valid | Brace/level sanity, key names validated against `xkeyboard-config` |
+| Layouts work on macOS/Linux | **NOT ESTABLISHED** — never loaded on either OS |

@@ -1,0 +1,80 @@
+---
+title: "Modifier States and Numbering in Khmer NiDA"
+sidebarTitle: "Modifier States"
+description: "How Khmer NiDA encodes modifier states through pCharModifiers: bit-to-number mapping, the four NiDA states, and why legacy Khmer gains a fifth Shift+AltGr level."
+---
+
+The Windows keyboard layout system maps physical modifier chords to modifier numbers through the `pCharModifiers` structure. Each character table entry then stores one code point per modifier number, in ascending order. NiDA defines 4 modifier numbers; legacy Khmer adds a fifth for `Shift+AltGr`, widening every main-table entry by 2 bytes.
+
+## The pCharModifiers structure
+
+```c
+struct {
+    PVOID  pVkToBit;       // maps virtual key → modifier bit
+    USHORT wMaxModBits;    // highest modifier bit declared
+    BYTE   aModifiers[];   // aModifiers[bit] = modifier number for that bit
+};
+```
+
+`aModifiers[bit]` gives the modifier number for a given modifier bit. Modifier number `15` is the sentinel for "invalid — this combination is never produced." NiDA sets `wMaxModBits = 6`.
+
+## NiDA modifier bit mapping
+
+| Modifier bit | Modifier number | Meaning |
+| :-- | :-- | :-- |
+| 0 | 0 | Normal |
+| 1 | 1 | Shift |
+| 2 | 2 | Control |
+| 3 | 15 | invalid — never produced |
+| 4 | 15 | invalid |
+| 5 | 15 | invalid |
+| 6 | 3 | AltGr (Ctrl+Alt or Right Alt) |
+
+The character tables then list one code point per modifier number in ascending order. NiDA's main table has four slots: **Normal, Shift, Control, AltGr**.
+
+## NiDA modifier states
+
+| State | Modifier number | Chords |
+| :-- | :-- | :-- |
+| Normal | 0 | unshifted |
+| Shift | 1 | Shift |
+| Control | 2 | Ctrl (no override in NiDA) |
+| AltGr | 3 | Ctrl+Alt, or Right Alt |
+| Shift+AltGr | — | not present in NiDA |
+
+<Important>
+Control is `0xF000` for every printable key in NiDA — NiDA overrides no control characters. Windows synthesises Ctrl+C, Ctrl+V and similar chords entirely on its own. The legacy Khmer layout is the same in this respect.
+</Important>
+
+## Legacy Khmer: the fifth modifier level
+
+`kbdkhmr.dll` sets `wMaxModBits = 7` and declares an extra bit 7 → modifier number 4. This gives a fifth modifier slot: **Shift+AltGr**. That slot carries the Khmer symbol block `U+19E0..U+19FF` — characters that NiDA users cannot reach at all.
+
+The structural consequence is straightforward: the main-table entry format is identical in both layouts, but the slot count changes.
+
+| Layout | `cStates` | `cbEntry` | Fifth state |
+| :-- | :-- | :-- | :-- |
+| NiDA (`kbdkni.dll`) | 4 | 10 | not defined |
+| Legacy Khmer (`kbdkhmr.dll`) | 5 | 12 | Shift+AltGr → `U+19E0..U+19FF` |
+
+The formula `cbEntry = 2 * (1 + cStates)` holds in both cases. No other part of the binary structure differs.
+
+## Implications for the platform layouts
+
+The state count flows directly into the generated platform files:
+
+- **XKB (Linux):** NiDA maps to `FOUR_LEVEL` (4 states); legacy Khmer maps to `EIGHT_LEVEL` (which accommodates 5 states). The generator emits the correct type from the state count in `nida_layout.json`.
+- **macOS keylayout:** the `keyMap index` follows the same 0–4 mapping; the generator emits exactly the `keyMap` entries the spec defines.
+- Both variants are produced by one script using the state count read from the spec — no hard-coded branching.
+
+## AltGr on different hardware
+
+AltGr corresponds to modifier bit 6, which Windows activates via two chords:
+
+| Hardware | AltGr activation |
+| :-- | :-- |
+| Keyboard with dedicated Right Alt key | Right Alt |
+| Keyboard without Right Alt | Ctrl+Alt chord |
+| macOS | Option key |
+
+On macOS, the Option key is mapped to the AltGr level when the layout is installed. On Linux, `setxkbmap` or the desktop's input settings handle the mapping. In all cases, the character emitted is whichever code point is stored in modifier slot 3 of the main table.

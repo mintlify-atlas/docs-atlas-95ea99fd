@@ -1,0 +1,205 @@
+---
+title: "Install Khmer NiDA Keyboard Layout on macOS"
+sidebarTitle: "macOS"
+description: "Install the Better-NiDA Khmer keyboard layout on macOS using a double-click .pkg installer or a shell script. Supports all five srak/srah ligatures natively."
+---
+
+macOS is the better-supported platform for Better-NiDA. Unlike XKB on Linux, Apple's `.keylayout` format natively supports multi-character output from a single key press, so all five srak/srah ligatures work exactly as they do on Windows — no workarounds required.
+
+## Prerequisites
+
+- macOS (any modern version)
+- No build tools needed for the shell-script install; the `.pkg` builder requires the Xcode Command Line Tools (`xcode-select --install`)
+
+## Variants
+
+Two layouts are shipped, both generated from the reverse-engineered Windows drivers:
+
+| File | Layout | Source driver |
+| :-- | :-- | :-- |
+| `Khmer NiDA.keylayout` | Khmer NiDA | `kbdkni.dll` (KLID `00010453`) |
+| `Khmer NiDA Legacy.keylayout` | Khmer NiDA Legacy | `kbdkhmr.dll` (KLID `00000453`) |
+
+They differ on about eight keys. Most visibly, NiDA puts the coeng subscript on `J` and the zero-width space on the spacebar, while the legacy layout swaps those around.
+
+---
+
+## Installation
+
+### Method 1: Double-click `.pkg` installer
+
+The `.pkg` installer installs both layouts system-wide and works for all users on the machine.
+
+<Steps>
+  <Step title="Build the installer package">
+    From the `macos/` directory, run:
+
+    ```sh
+    cd macos
+    ./make-pkg.sh
+    ```
+
+    This produces `dist/Khmer-NiDA-Layouts-1.0.0.pkg`. The script requires macOS and the Xcode Command Line Tools.
+  </Step>
+  <Step title="Run the installer">
+    Double-click `dist/Khmer-NiDA-Layouts-1.0.0.pkg` and follow the on-screen prompts. Because it installs to `/Library/Keyboard Layouts`, macOS will ask for your password.
+
+    Alternatively, install from the terminal:
+
+    ```sh
+    sudo installer -pkg dist/Khmer-NiDA-Layouts-1.0.0.pkg -target /
+    ```
+  </Step>
+  <Step title="Enable the layout">
+    See [Enabling the layout](#enabling-the-layout) below.
+  </Step>
+</Steps>
+
+---
+
+### Method 2: Shell script (user-level, no password)
+
+This method copies the layouts only to your own account and requires no administrator privileges.
+
+<Steps>
+  <Step title="Run the installer script">
+    ```sh
+    cd macos
+    ./install.sh
+    ```
+
+    This copies both `.keylayout` files to `~/Library/Keyboard Layouts` and sends a `SIGHUP` to `SystemUIServer` to nudge the layout cache.
+  </Step>
+  <Step title="Enable the layout">
+    See [Enabling the layout](#enabling-the-layout) below.
+  </Step>
+</Steps>
+
+---
+
+### Method 3: From the shell with `defaults`
+
+If you prefer a fully scriptable approach, you can register the layout directly via the `defaults` command after copying the files:
+
+```sh
+defaults write com.apple.HIToolbox AppleEnabledInputSources -array-add '<dict>
+  <key>InputSourceKind</key><string>Keyboard Layout</string>
+  <key>KeyboardLayout Name</key><string>Khmer NiDA</string>
+</dict>'
+killall SystemUIServer
+```
+
+---
+
+## Enabling the layout
+
+After installation (by any method above), add the layout to your active input sources:
+
+<Steps>
+  <Step title="Open Keyboard settings">
+    Go to **System Settings → Keyboard → Text Input → Edit...**
+  </Step>
+  <Step title="Add the layout">
+    Click **`+`** (Add Input Source), then navigate to **Others...**.
+  </Step>
+  <Step title="Select the layout">
+    Pick **Khmer NiDA** or **Khmer NiDA Legacy** from the list.
+  </Step>
+  <Step title="If the layouts don't appear">
+    macOS caches the keyboard layout list aggressively. If the layouts are not visible, **log out and back in** (or restart), then repeat the steps above.
+  </Step>
+</Steps>
+
+---
+
+## Verifying the installation
+
+After enabling the layout, open a Unicode-aware editor such as **TextEdit** or **VS Code** and spot-check the following keys:
+
+### Key reference
+
+| Key | Unshifted | Shift | Option (AltGr) |
+| :-- | :-- | :-- | :-- |
+| `J` | `U+17D2` coeng | `U+1789` nyo | |
+| `Space` | `U+200B` ZWSP | `U+0020` real space | `U+00A0` NBSP |
+| `1` | `U+17E1` | `U+0021` | `U+200C` ZWNJ |
+| `-` | `U+17A5` | `U+17CC` | `U+00D7` |
+| `` ` `` | `U+00AB` | `U+00BB` | `U+200D` ZWJ |
+
+### Ligature checklist
+
+These should all be produced by a **single key press**:
+
+| Key | Expected output |
+| :-- | :-- |
+| `Shift+A` | `U+17B6 U+17C6` ាំ |
+| `Shift+V` | `U+17C1 U+17C7` េះ |
+| `Shift+;` | `U+17C4 U+17C7` ោះ |
+| `,` | `U+17BB U+17C6` ុំ |
+| `Shift+,` | `U+17BB U+17C7` ុះ |
+
+<Note>
+  If a character appears missing or renders incorrectly, the issue is most likely Khmer shaping support in the app you are typing into — not the keyboard layout itself. Try TextEdit or VS Code as a reference.
+</Note>
+
+---
+
+## Editing the layout
+
+The `.keylayout` files are plain XML. You can open and edit them directly in any text editor:
+
+```sh
+open -e 'Khmer NiDA.keylayout'     # opens in TextEdit
+```
+
+A key entry looks like this:
+
+```xml
+<key code="24" output="៤"/>
+```
+
+`code` is the Apple virtual key code; `output` is the string the key emits. After editing, copy the file back to `~/Library/Keyboard Layouts` and log out and back in for the changes to take effect — macOS caches compiled layouts aggressively.
+
+<Note>
+  The `keyboard` element in each file carries `maxout="3"`, which is the maximum number of characters a single key press may emit. The existing ligatures are all two characters, so this is comfortably set. If you add a ligature longer than three characters, raise `maxout` to match or macOS will silently truncate the output.
+</Note>
+
+---
+
+## Removing the layout
+
+First remove the layout from **System Settings → Keyboard → Text Input** so it does not appear as a missing entry. Then delete the files:
+
+```sh
+# System-wide install:
+sudo rm '/Library/Keyboard Layouts/Khmer NiDA.keylayout' \
+        '/Library/Keyboard Layouts/Khmer NiDA Legacy.keylayout'
+
+# User-level install (via install.sh):
+rm ~/Library/Keyboard\ Layouts/Khmer*.keylayout
+killall SystemUIServer
+```
+
+---
+
+## Regenerating from source
+
+The `.keylayout` files are generated from a shared layout spec, not hand-written. Hand edits will be overwritten on the next regeneration. To regenerate, run the build scripts from the repository root on Windows:
+
+```powershell
+# On Windows
+pwsh ./scripts/build_platform_layouts.ps1
+pwsh ./scripts/verify_platform_layouts.ps1
+```
+
+---
+
+## Testing status
+
+<Warning>
+  These layout files were **generated on Windows** and verified structurally there — checks include XML well-formedness, no duplicate key codes, a non-empty base layer, and all five ligatures compared byte-for-byte against `nida_layout.json`. They have **not** been loaded on a real macOS machine. Please run the verification checklist above on real hardware before relying on these layouts in production.
+</Warning>
+
+<Note>
+  If you test these layouts on real macOS hardware, please **open a Testing Report issue** in the repository and let us know what worked and what didn't. Your feedback directly improves the project for everyone.
+</Note>

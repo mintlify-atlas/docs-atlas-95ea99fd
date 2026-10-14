@@ -1,0 +1,68 @@
+---
+title: "Khmer NiDA vs. Legacy Khmer Layout: Key Differences"
+sidebarTitle: "NiDA vs Legacy"
+description: "A complete comparison of the modern Khmer NiDA and legacy Khmer keyboard layouts: modifier states, key assignments, coeng placement, and the missing Shift+AltGr symbol block."
+---
+
+Better-NiDA ships two variants that correspond to the two Windows keyboard drivers: **Khmer NiDA** (`kbdkni.dll`, KLID `00010453`) and **Khmer NiDA Legacy** (from `kbdkhmr.dll`, KLID `00000453`). While the two layouts share the same binary table format, entry structure, and ligature mechanism, they differ in several key assignments, in the number of modifier states they expose, and in the set of characters they can produce. Understanding the differences helps you pick the right variant for your workflow.
+
+## Summary Differences
+
+| Feature | Khmer NiDA (`kbdkni.dll`) | Legacy Khmer (`kbdkhmr.dll`) |
+| :-- | :-- | :-- |
+| Coeng subscript U+17D2 | `J` | `Space` |
+| Zero-width space U+200B | `Space` | `/` |
+| Visible space U+0020 | `Shift+Space` | `Shift+Space` |
+| Letter Nyo U+1789 | `Shift+J` | `J` |
+| Srak AM (U+17B6 U+17C6) | `Shift+A` | `Shift+S` |
+| Srak OM (U+17BB U+17C6) | `,` (comma) | `Shift+J` |
+| Srak UH (U+17BB U+17C7) | `Shift+,` | `Shift+G` |
+| Srah EH (U+17C1 U+17C7) | `Shift+V` | `Shift+V` |
+| Srah AOH (U+17C4 U+17C7) | `Shift+;` | `Shift+[` |
+| Modifier states in main table | 4 (Normal / Shift / Control / AltGr) | 5 (+ Shift+AltGr) |
+| Shift+AltGr characters | Not defined | Khmer symbol block U+19E0–U+19FF |
+
+## The Missing Fifth Level: Shift+AltGr
+
+The most structurally significant difference between the two layouts is the number of modifier states carried by the main character table.
+
+NiDA's main table declares **4 modifier states**: Normal (0), Shift (1), Control (2), and AltGr (3). The modifier-state numbering is set by `wMaxModBits = 6` in `pCharModifiers`, and each main-table entry is **10 bytes** (`cbEntry = 2 * (1 + 4)`).
+
+The legacy Khmer layout declares **5 modifier states** by setting `wMaxModBits = 7`, adding modifier number 4 for the `Shift+AltGr` chord. Each main-table entry is therefore **12 bytes**. This fifth slot is where the legacy layout stores its entire extended character set.
+
+The characters accessible only via `Shift+AltGr` in the legacy layout — and completely unreachable in NiDA — include:
+
+- **SHA** (U+179D) and **SSO** (U+179E) — two Khmer consonants that have no NiDA binding at all
+- **ATTHACAN** (U+17DD) — the Khmer sign atthacan
+- **LEK ATTAK** digits (U+17F0–U+17F9) — nine archaic Khmer numeral signs
+- **The full Khmer symbol block** (U+19E0–U+19FF) — 32 Khmer lunar date symbols
+
+If you need to type any of these characters, the legacy layout is required. NiDA provides no path to them in its current form.
+
+## Technical Note: Binary Table Compatibility
+
+Both layouts use identical binary formats. The difference is purely in `wMaxModBits`:
+
+| Layout | `wMaxModBits` | Main table `cbEntry` | Modifier states |
+| :-- | :-- | :-- | :-- |
+| Khmer NiDA | `6` | 10 bytes | 4 (Normal, Shift, Control, AltGr) |
+| Legacy Khmer | `7` | 12 bytes | 5 (+ Shift+AltGr) |
+
+Both layouts use the same `nLgMax = 2` and `cbLgEntry = 8` ligature format, and both have zero overlapping virtual keys between their main table and their secondary fallback tables. The character assignment changes between the two layouts (coeng on `J` vs `Space`, etc.) are entirely a matter of which code points are stored in the main table slots — the underlying mechanism is identical.
+
+## Which Should I Use?
+
+**Use Khmer NiDA if:**
+- You follow the modern Khmer computing standard as defined by NiDA (Cambodia's National Information Communications Technology Development Authority)
+- Your text does not require the Khmer symbol block (U+19E0–U+19FF), SHA, SSO, ATTHACAN, or LEK ATTAK digits
+- You are new to Khmer typing and want to learn the current recommended layout
+- Your target platform is macOS or Linux and you want the layout most likely to be consistent with other modern Khmer users
+
+**Use Legacy Khmer if:**
+- You need access to the U+19E0–U+19FF Khmer symbol block, SHA (U+179D), SSO (U+179E), ATTHACAN (U+17DD), or the LEK ATTAK numerals (U+17F0–U+17F9)
+- You are migrating from an existing legacy Khmer workflow and want to minimise the relearning cost for the coeng key position (`Space` rather than `J`)
+- Your documents were authored on the legacy layout and require exact keystroke compatibility for editing
+
+<Note>
+**Roadmap:** Adding a `Shift+AltGr` level to the NiDA variant — exposing the Khmer symbol block and the two missing consonants — is a planned Phase 2 item. Because both layouts share the same binary format, this is a data-only change: updating `wMaxModBits` from `6` to `7` and populating the new fifth slot in the main table. No code changes to the generator are required.
+</Note>
