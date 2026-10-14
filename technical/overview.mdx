@@ -1,7 +1,7 @@
 ---
 title: "Reverse Engineering kbdkni.dll: Method and Findings"
 sidebarTitle: "Overview"
-description: "How the Windows Khmer NiDA keyboard driver was decoded using KbdLayerDescriptor and verified against ToUnicodeEx, yielding a 144/144 match with zero mismatches."
+description: "Method and findings for decoding kbdkni.dll: two independent paths, KbdLayerDescriptor plus ToUnicodeEx oracle, 144 comparisons, zero mismatches."
 ---
 
 This section documents how `kbdkni.dll` — the Windows Khmer NiDA keyboard driver, KLID `00010453` — was reverse-engineered using two independent methods and cross-checked to produce the authoritative `nida_layout.json` specification. Both methods operate entirely within Windows and agree on every comparison made, giving a faithful, verifiable decode of the layout's binary tables.

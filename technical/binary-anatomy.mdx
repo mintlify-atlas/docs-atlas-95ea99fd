@@ -1,7 +1,7 @@
 ---
 title: "kbdkni.dll Binary Structure: Tables, Entries, and Ligatures"
 sidebarTitle: "Binary Anatomy"
-description: "Detailed breakdown of the kbdkni.dll KbdLayerDescriptor structure: character sub-tables, entry format, modifier numbering, and the five-entry ligature table."
+description: "kbdkni.dll KbdLayerDescriptor offsets, sub-table counts, KbdCharEntry format, reserved wchar values 0xF000 and 0xF002, and the five ligature records."
 ---
 
 This page documents the binary layout of `kbdkni.dll` as decoded by the structural analysis. Every field shown has been confirmed by comparison with Windows: the structural decode and the `ToUnicodeEx` behavioural oracle agree on 144 of 144 comparisons with zero mismatches. Where a field was observed but its meaning was not established, that is stated explicitly in the [Not decoded](#not-decoded) section.
@@ -21,7 +21,8 @@ Every `kbd*.dll` exports `KbdLayerDescriptor`, which returns a pointer to a desc
 | `+0x30` | `puVKeyToCodes` | virtual-key remap list, 127 entries |
 | `+0x38` | `cbVKeyToCodes` | `0x7F` |
 | `+0x40` | `pTypedef` | shared keyboard typedef list |
-| `+0x50` | flags | `0x00010001` (Khmer layouts); meaning unconfirmed |
+| `+0x48` | key-name string data | points into the name-string area |
+| `+0x50` | flags | `0x00010001` (Khmer layouts), `0x00010000` (US); meaning unconfirmed |
 | `+0x54` | `nLgMax` | `2` — max characters in one ligature |
 | `+0x55` | `cbLgEntry` | `8` — size of one ligature record |
 | `+0x58` | `pLigature` | ligature table |

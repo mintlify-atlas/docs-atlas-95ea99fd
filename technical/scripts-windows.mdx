@@ -1,7 +1,7 @@
 ---
-title: "Windows-Only PowerShell Scripts Reference"
+title: "Windows-Only PowerShell Scripts Reference (Better-NiDA)"
 sidebarTitle: "Windows Scripts"
-description: "Reference for the five PowerShell scripts that require Windows: they load kbdkni.dll via LoadLibrary and call ToUnicodeEx and MapVirtualKeyEx to decode and probe the driver."
+description: "Windows-only Better-NiDA scripts: load kbdkni.dll via LoadLibrary, call ToUnicodeEx and MapVirtualKeyEx to decode and probe the keyboard driver DLL tables."
 ---
 
 Five scripts in Better-NiDA require Windows because they load the keyboard driver DLL via `kernel32!LoadLibrary` and call Windows APIs (`user32!ToUnicodeEx`, `user32!MapVirtualKeyEx`). These cannot be ported — the DLL and APIs do not exist on other platforms. A sixth script, `verify_all.ps1`, drives these five and therefore also requires Windows.
@@ -24,11 +24,16 @@ Windows 10 or 11, PowerShell 5.1+ or PowerShell 7+.
 ### Stages
 
 ```
-1–3  decode driver tables (kbdkni, kbdkhmr, kbdus)
-4–6  probe layout behaviour, with and without Control
-7    refresh official Unicode character names
-8    rebuild nida_layout.json
-9    generate the macOS .keylayout and Linux XKB files
+1/10  Decode driver tables (kbdkni)
+2/10  Decode driver tables (kbdkhmr)
+3/10  Decode driver tables (kbdus)
+4/10  Probe layout behaviour
+5/10  Probe Control behaviour (NiDA)
+6/10  Probe Control behaviour (US)
+7/10  Build Unicode name table
+8/10  Rebuild nida_layout.json
+9/10  Generate macOS + Linux layouts
+10/10 Build self-contained installers
 
 CHECK  NiDA tables vs ToUnicodeEx            144/144, 0 mismatches
 CHECK  legacy Khmer tables vs ToUnicodeEx    144/144, 0 mismatches

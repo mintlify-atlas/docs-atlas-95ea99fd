@@ -1,7 +1,7 @@
 ---
 title: "Verification Pipeline: Proving the Decode is Faithful"
 sidebarTitle: "Verification"
-description: "How Better-NiDA proves its character tables match Windows: two independent decoding paths, 144/144 ToUnicodeEx comparisons, and what the checks do and do not prove."
+description: "How Better-NiDA proves its character tables match Windows: two independent decode paths, 144/144 ToUnicodeEx comparisons, and the limits of each check."
 ---
 
 Better-NiDA's verification pipeline uses two independent methods to prove the decoded tables match Windows exactly, then checks the generated platform files structurally. The result is a reproducible, CI-friendly claim: the character mapping is faithful to the Windows driver, and the generated layouts are well-formed.

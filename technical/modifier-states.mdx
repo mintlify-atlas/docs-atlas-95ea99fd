@@ -1,7 +1,7 @@
 ---
-title: "Modifier States and Numbering in Khmer NiDA"
+title: "Modifier States and Bit Numbering in Khmer NiDA Layout"
 sidebarTitle: "Modifier States"
-description: "How Khmer NiDA encodes modifier states through pCharModifiers: bit-to-number mapping, the four NiDA states, and why legacy Khmer gains a fifth Shift+AltGr level."
+description: "How NiDA encodes modifier states via pCharModifiers: bit-to-number mapping, the four NiDA states, and why legacy Khmer gains a fifth Shift+AltGr level."
 ---
 
 The Windows keyboard layout system maps physical modifier chords to modifier numbers through the `pCharModifiers` structure. Each character table entry then stores one code point per modifier number, in ascending order. NiDA defines 4 modifier numbers; legacy Khmer adds a fifth for `Shift+AltGr`, widening every main-table entry by 2 bytes.
@@ -42,9 +42,9 @@ The character tables then list one code point per modifier number in ascending o
 | AltGr | 3 | Ctrl+Alt, or Right Alt |
 | Shift+AltGr | — | not present in NiDA |
 
-<Important>
+<Note>
 Control is `0xF000` for every printable key in NiDA — NiDA overrides no control characters. Windows synthesises Ctrl+C, Ctrl+V and similar chords entirely on its own. The legacy Khmer layout is the same in this respect.
-</Important>
+</Note>
 
 ## Legacy Khmer: the fifth modifier level
 

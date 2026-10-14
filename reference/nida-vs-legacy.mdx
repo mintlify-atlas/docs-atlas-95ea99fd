@@ -1,7 +1,7 @@
 ---
 title: "Khmer NiDA vs. Legacy Khmer Layout: Key Differences"
 sidebarTitle: "NiDA vs Legacy"
-description: "A complete comparison of the modern Khmer NiDA and legacy Khmer keyboard layouts: modifier states, key assignments, coeng placement, and the missing Shift+AltGr symbol block."
+description: "How Khmer NiDA and legacy Khmer keyboard layouts differ: modifier states, key assignments, coeng placement, and the missing Shift+AltGr symbol block."
 ---
 
 Better-NiDA ships two variants that correspond to the two Windows keyboard drivers: **Khmer NiDA** (`kbdkni.dll`, KLID `00010453`) and **Khmer NiDA Legacy** (from `kbdkhmr.dll`, KLID `00000453`). While the two layouts share the same binary table format, entry structure, and ligature mechanism, they differ in several key assignments, in the number of modifier states they expose, and in the set of characters they can produce. Understanding the differences helps you pick the right variant for your workflow.
@@ -34,8 +34,8 @@ The characters accessible only via `Shift+AltGr` in the legacy layout — and co
 
 - **SHA** (U+179D) and **SSO** (U+179E) — two Khmer consonants that have no NiDA binding at all
 - **ATTHACAN** (U+17DD) — the Khmer sign atthacan
-- **LEK ATTAK** digits (U+17F0–U+17F9) — nine archaic Khmer numeral signs
-- **The full Khmer symbol block** (U+19E0–U+19FF) — 32 Khmer lunar date symbols
+- **LEK ATTAK** symbols (U+17F0–U+17F9) — nine archaic Khmer numeral symbols
+- **The full Khmer symbol block** (U+19E0–U+19FF) — 32 Khmer symbols (PATHAMASAT, KOET and ROC families, TUTEYASAT)
 
 If you need to type any of these characters, the legacy layout is required. NiDA provides no path to them in its current form.
 
@@ -54,12 +54,12 @@ Both layouts use the same `nLgMax = 2` and `cbLgEntry = 8` ligature format, and 
 
 **Use Khmer NiDA if:**
 - You follow the modern Khmer computing standard as defined by NiDA (Cambodia's National Information Communications Technology Development Authority)
-- Your text does not require the Khmer symbol block (U+19E0–U+19FF), SHA, SSO, ATTHACAN, or LEK ATTAK digits
+- Your text does not require the Khmer symbol block (U+19E0–U+19FF), SHA, SSO, ATTHACAN, or LEK ATTAK symbols
 - You are new to Khmer typing and want to learn the current recommended layout
 - Your target platform is macOS or Linux and you want the layout most likely to be consistent with other modern Khmer users
 
 **Use Legacy Khmer if:**
-- You need access to the U+19E0–U+19FF Khmer symbol block, SHA (U+179D), SSO (U+179E), ATTHACAN (U+17DD), or the LEK ATTAK numerals (U+17F0–U+17F9)
+- You need access to the U+19E0–U+19FF Khmer symbol block, SHA (U+179D), SSO (U+179E), ATTHACAN (U+17DD), or the LEK ATTAK symbols (U+17F0–U+17F9)
 - You are migrating from an existing legacy Khmer workflow and want to minimise the relearning cost for the coeng key position (`Space` rather than `J`)
 - Your documents were authored on the legacy layout and require exact keystroke compatibility for editing
 

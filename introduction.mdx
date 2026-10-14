@@ -1,8 +1,10 @@
 ---
-title: "Better-NiDA: Faithful Khmer Keyboard Layout for macOS and Linux"
+title: "Better-NiDA: Verified Khmer NiDA Layout for macOS & Linux"
 sidebarTitle: "Introduction"
-description: "Better-NiDA reverse-engineers the Windows kbdkni.dll driver to produce verified Khmer NiDA keyboard layouts for macOS and Linux, with all 49 keys and 5 ligatures confirmed at 144/144 accuracy."
+description: "Better-NiDA reverse-engineers the Windows kbdkni.dll driver to deliver verified Khmer NiDA keyboard layouts for macOS and Linux, with 144/144 accuracy."
 ---
+
+Better-NiDA reverse-engineers the Windows Khmer NiDA keyboard driver to produce faithful, mechanically verified layouts for macOS and Linux — every key assignment traces back to the driver itself, with a public verification record anyone can reproduce.
 
 ## What is Better-NiDA?
 
@@ -60,7 +62,7 @@ verified spec, so they cannot introduce transcription errors.
 
 The pipeline runs in three stages:
 
-```
+```text
 kbdkni.dll  →  nida_layout.json  →  macOS .keylayout + Linux XKB files
 ```
 
